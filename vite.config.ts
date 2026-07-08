@@ -55,7 +55,7 @@ export default defineConfig({
             // Weather / geocoding / places / wiki: serve fresh when online,
             // fall back to cache when offline.
             urlPattern:
-              /^https:\/\/(api\.open-meteo\.com|geocoding-api\.open-meteo\.com|overpass-api\.de|en\.wikipedia\.org|restcountries\.com)\/.*/i,
+              /^https:\/\/(api\.open-meteo\.com|geocoding-api\.open-meteo\.com|overpass-api\.de|en\.wikipedia\.org|restcountries\.com|query\.wikidata\.org)\/.*/i,
             handler: 'NetworkFirst',
             options: {
               cacheName: API_CACHE,

@@ -9,9 +9,11 @@ authentic local food picks, and offline maps.
 Give it a city, a start date, the number of days, and (optionally) your flight
 times. It generates:
 
-- **Famous places** — ranked by notability (Wikipedia/Wikidata/heritage signals
-  from OpenStreetMap), geographically clustered so each day stays in one area
-  with a walkable nearest-neighbour route.
+- **Famous places** — ranked by *global fame*: each candidate's Wikidata
+  sitelink count (how many Wikipedia language editions cover it — Eiffel
+  Tower ≈ 280, a random statue ≈ 2), so plans feature the places people
+  actually travel for. Sights are geographically clustered so each day stays
+  in one area with a walkable nearest-neighbour route.
 - **Authentic restaurants & local cafés** — chain brands filtered out, local
   cuisine boosted, picked near wherever you'll be at lunch/dinner/coffee time,
   never repeated across the trip.
@@ -39,6 +41,7 @@ to any static host as-is:
 | Geocoding + timezone | Open-Meteo Geocoding API |
 | 16-day daily forecast | Open-Meteo Forecast API |
 | Sights, food, cafés, parks | OpenStreetMap via Overpass API |
+| Fame ranking | Wikidata SPARQL (sitelink counts) |
 | City summary | Wikipedia REST API |
 | Currency / languages / driving side | REST Countries |
 | Map rendering | Leaflet + OSM raster tiles |

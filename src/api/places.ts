@@ -1,5 +1,6 @@
 import type { Destination, Place, PlaceKind } from '../types'
 import { haversineKm } from '../types'
+import { fetchSitelinkCounts } from './wikidata'
 
 const OVERPASS_ENDPOINT = 'https://overpass-api.de/api/interpreter'
 
@@ -25,13 +26,22 @@ const INDOOR_KINDS = new Set<PlaceKind>(['museum'])
 function buildQuery(dest: Destination): string {
   const around = `(around:${CITY_RADIUS_KM * 1000},${dest.lat},${dest.lon})`
   const aroundWide = `(around:${PARKS_RADIUS_KM * 1000},${dest.lat},${dest.lon})`
+  // Overpass returns matches in arbitrary order, so an unfiltered query in a
+  // big city fills the cap with incidental POIs. Tier 1 therefore only takes
+  // places notable enough to have a Wikipedia article; the unfiltered tier 2
+  // is a fallback so small towns still get a full plan.
   return `
 [out:json][timeout:60];
+(
+  nwr["tourism"~"${SIGHT_TOURISM.source}"]["name"]["wikipedia"]${around};
+  nwr["historic"~"${SIGHT_HISTORIC.source}"]["name"]["wikipedia"]${around};
+)->.notable;
+.notable out center 450;
 (
   nwr["tourism"~"${SIGHT_TOURISM.source}"]["name"]${around};
   nwr["historic"~"${SIGHT_HISTORIC.source}"]["name"]${around};
 )->.sights;
-.sights out center 200;
+.sights out center 120;
 nwr["amenity"="restaurant"]["name"]["cuisine"]${around}->.food;
 .food out center 150;
 nwr["amenity"="cafe"]["name"]${around}->.cafes;
@@ -103,6 +113,7 @@ function toPlace(el: OverpassElement, dest: Destination): Place | null {
     openingHours: tags.opening_hours,
     website: tags.website ?? tags['contact:website'],
     wikipedia: tags.wikipedia,
+    qid: tags.wikidata,
     distanceKm: haversineKm({ lat, lon }, dest),
   }
 }
@@ -116,8 +127,9 @@ export interface PlacePool {
 }
 
 /**
- * Fetch and rank points of interest around the destination from
- * OpenStreetMap via Overpass (free, keyless, CORS-enabled).
+ * Fetch points of interest around the destination from OpenStreetMap via
+ * Overpass, then rank them by global fame (Wikidata sitelink counts) so
+ * the plan features the places people actually travel for.
  */
 export async function fetchPlaces(dest: Destination): Promise<PlacePool> {
   const res = await fetch(OVERPASS_ENDPOINT, {
@@ -127,31 +139,52 @@ export async function fetchPlaces(dest: Destination): Promise<PlacePool> {
   })
   if (!res.ok) throw new Error(`Places lookup failed (HTTP ${res.status})`)
   const data = (await res.json()) as { elements?: OverpassElement[] }
+  const all = parseElements(data.elements ?? [], dest)
 
-  const seen = new Set<string>()
+  // Best-effort fame enrichment — an empty map degrades to tag scores.
+  const fame = await fetchSitelinkCounts(all.map((p) => p.qid))
+  return buildPool(all, fame)
+}
+
+function parseElements(elements: OverpassElement[], dest: Destination): Place[] {
+  const seenIds = new Set<string>()
+  const seenNames = new Set<string>()
   const all: Place[] = []
-  for (const el of data.elements ?? []) {
+  for (const el of elements) {
+    const id = `${el.type}/${el.id}`
+    if (seenIds.has(id)) continue // tier 1 + tier 2 overlap
+    seenIds.add(id)
     const p = toPlace(el, dest)
     if (!p) continue
     const key = `${p.kind}:${p.name.toLowerCase()}`
-    if (seen.has(key)) continue // ways+relations often duplicate nodes
-    seen.add(key)
+    if (seenNames.has(key)) continue // ways+relations often duplicate nodes
+    seenNames.add(key)
     all.push(p)
   }
+  return all
+}
+
+/**
+ * Rank places into category pools. Fame (Wikipedia language editions,
+ * typically 1–300) dominates tag-based scores (0–14) by design: a
+ * world-famous sight a few km out beats an incidental one next door.
+ */
+export function buildPool(all: Place[], fame: Map<string, number>): PlacePool {
+  const famed = all.map((p) => ({
+    ...p,
+    score: p.score + (p.qid ? (fame.get(p.qid) ?? 0) : 0),
+  }))
 
   const byScore = (a: Place, b: Place) =>
     b.score - a.score || a.distanceKm - b.distanceKm
 
-  const pool: PlacePool = {
-    sights: all
+  return {
+    sights: famed
       .filter((p) => ['attraction', 'museum', 'viewpoint'].includes(p.kind))
       .sort(byScore),
-    restaurants: all.filter((p) => p.kind === 'restaurant').sort(byScore),
-    cafes: all.filter((p) => p.kind === 'cafe').sort(byScore),
-    parks: all
-      .filter((p) => p.kind === 'park' && p.score > 0)
-      .sort(byScore),
-    nationalParks: all.filter((p) => p.kind === 'national_park').sort(byScore),
+    restaurants: famed.filter((p) => p.kind === 'restaurant').sort(byScore),
+    cafes: famed.filter((p) => p.kind === 'cafe').sort(byScore),
+    parks: famed.filter((p) => p.kind === 'park' && p.score > 0).sort(byScore),
+    nationalParks: famed.filter((p) => p.kind === 'national_park').sort(byScore),
   }
-  return pool
 }

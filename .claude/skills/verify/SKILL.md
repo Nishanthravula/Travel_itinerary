@@ -24,9 +24,11 @@ NODE_PATH.
 **Gotchas learned the hard way:**
 
 - Session egress policy blocks the third-party APIs (open-meteo, overpass,
-  wikipedia, restcountries, OSM tiles) — 403 CONNECT from the proxy. Verify
-  with `context.route()` interception serving canned JSON payloads
-  (see the shapes in `src/api/*.ts`).
+  wikipedia, restcountries, query.wikidata.org, OSM tiles) — 403 CONNECT
+  from the proxy. Verify with `context.route()` interception serving canned
+  JSON payloads (see the shapes in `src/api/*.ts`). The wikidata mock must
+  return SPARQL bindings `{item: {value: ".../entity/Qn"}, links: {value: "N"}}`
+  — fame counts dominate ranking, so give landmarks 50–300 and filler 1–5.
 - **The app registers a service worker whose fetches BYPASS Playwright
   routing.** Create the main test context with `serviceWorkers: 'block'`
   or all API mocks silently fail with `net::ERR_FAILED`.

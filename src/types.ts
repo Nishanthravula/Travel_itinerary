@@ -34,6 +34,8 @@ export interface Place extends GeoPoint {
   openingHours?: string
   website?: string
   wikipedia?: string
+  /** Wikidata QID (e.g. "Q243") — used to look up global fame. */
+  qid?: string
   distanceKm: number
 }
 
