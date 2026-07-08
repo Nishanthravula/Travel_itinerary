@@ -31,6 +31,22 @@ const FULL_DAY_TEMPLATE: SlotTemplate[] = [
   { startMin: hhmmToMinutes('19:45'), durationMin: 90, role: 'dinner' },
 ]
 
+/**
+ * How many sight slots (incl. the sunset slot) survive the day's window.
+ * The planner uses this to size day clusters so flight-trimmed days don't
+ * silently swallow top sights they have no time to visit.
+ */
+export function sightCapacity(notBefore?: number, notAfter?: number): number {
+  const windowStart = Math.max(notBefore ?? DAY_START, DAY_START)
+  const windowEnd = Math.min(notAfter ?? DAY_END, DAY_END)
+  return FULL_DAY_TEMPLATE.filter(
+    (s) =>
+      (s.role === 'sight' || s.role === 'sight-late' || s.role === 'sunset') &&
+      s.startMin >= windowStart &&
+      s.startMin + s.durationMin <= windowEnd,
+  ).length
+}
+
 export interface DayInputs {
   sights: Place[]
   restaurants: Place[]

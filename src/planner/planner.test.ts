@@ -88,6 +88,14 @@ describe('clusterPlaces', () => {
     expect(clusters).toHaveLength(3)
     expect(clusters.flat()).toHaveLength(1)
   })
+
+  it('honours per-day capacity targets without dropping anyone', () => {
+    const places = Array.from({ length: 10 }, () => place())
+    const clusters = clusterPlaces(places, 3, [3, 5, 2])
+    const sizes = clusters.map((c) => c.length).sort((a, b) => b - a)
+    expect(sizes).toEqual([5, 3, 2])
+    expect(new Set(clusters.flat().map((p) => p.id)).size).toBe(10)
+  })
 })
 
 describe('scheduleDay', () => {
@@ -192,8 +200,10 @@ describe('buildItinerary', () => {
       ['2026-08-02', { ...sunny, date: '2026-08-02' }],
       ['2026-08-03', { ...rainy, date: '2026-08-03' }],
     ])
+    // No flights: all days share full capacity, so assignment is
+    // purely weather-driven.
     const it_ = buildItinerary({
-      request,
+      request: { ...request, flights: {} },
       destination: dest,
       pool: pool(),
       weatherByDate: weather,
@@ -229,6 +239,21 @@ describe('buildItinerary', () => {
     const cutoff = hhmmToMinutes('19:00') - DEPARTURE_BUFFER_MIN
     for (const s of last.stops)
       expect(s.startMin + s.durationMin).toBeLessThanOrEqual(cutoff)
+  })
+
+  it('never drops the top sight onto a flight-trimmed day it cannot fit', () => {
+    const p = pool()
+    const star = place({ name: 'Tour Eiffel', score: 25, lat: 48.858, lon: 2.294 })
+    p.sights = [star, ...p.sights]
+    const it_ = buildItinerary({
+      request, // arrival 11:30, departure 19:00 — short first & last days
+      destination: dest,
+      pool: p,
+      weatherByDate: new Map(),
+      cityInfo: { timezone: dest.timezone },
+    })
+    const allStops = it_.days.flatMap((d) => d.stops.map((s) => s.place.name))
+    expect(allStops).toContain('Tour Eiffel')
   })
 
   it('flags trips beyond the forecast horizon', () => {

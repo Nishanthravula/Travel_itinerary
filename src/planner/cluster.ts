@@ -5,11 +5,21 @@ import { haversineKm } from '../types'
  * Deterministic, balanced k-means over place coordinates.
  *
  * Each cluster becomes one day of the trip, so we want groups that are
- * geographically tight (less criss-crossing the city) and similar in size
- * (no empty days). Initialisation uses farthest-point sampling from the
- * top-scored place, so results are stable run-to-run — no RNG.
+ * geographically tight (less criss-crossing the city). Initialisation uses
+ * farthest-point sampling from the top-scored place, so results are stable
+ * run-to-run — no RNG.
+ *
+ * `targets` (optional) sets the wanted cluster sizes — e.g. a flight-trimmed
+ * arrival day only fits 2 sights, so its cluster should hold 2, not n/k.
+ * The multiset of resulting sizes matches `targets`; without it, sizes are
+ * near-equal as before. Members are only ever moved between clusters, never
+ * dropped.
  */
-export function clusterPlaces(places: Place[], k: number): Place[][] {
+export function clusterPlaces(
+  places: Place[],
+  k: number,
+  targets?: number[],
+): Place[][] {
   if (k <= 0) return []
   if (places.length === 0) return Array.from({ length: k }, () => [])
   if (k === 1) return [[...places]]
@@ -49,11 +59,38 @@ export function clusterPlaces(places: Place[], k: number): Place[][] {
   const clusters: Place[][] = Array.from({ length: kEff }, () => [])
   places.forEach((p, i) => clusters[assignment[i]].push(p))
 
-  balance(clusters, centroids, Math.ceil(places.length / kEff))
+  balance(clusters, centroids, capsFor(clusters, places.length, targets))
 
   // Pad with empty clusters if k > number of places.
   while (clusters.length < k) clusters.push([])
   return clusters
+}
+
+/**
+ * Per-cluster size caps. With explicit targets, the largest target goes to
+ * the currently-largest cluster (least disruption); caps are inflated if
+ * they can't hold everything. Without targets, near-equal sizes.
+ */
+function capsFor(clusters: Place[][], n: number, targets?: number[]): number[] {
+  const k = clusters.length
+  if (!targets) return new Array<number>(k).fill(Math.ceil(n / k) + 1)
+
+  const sorted = [...targets].sort((a, b) => b - a).slice(0, k)
+  while (sorted.length < k) sorted.push(0)
+  let deficit = n - sorted.reduce((s, t) => s + t, 0)
+  for (let i = 0; deficit > 0; i = (i + 1) % k) {
+    sorted[i]++
+    deficit--
+  }
+
+  const bySize = clusters
+    .map((c, i) => ({ i, size: c.length }))
+    .sort((a, b) => b.size - a.size)
+  const caps = new Array<number>(k).fill(0)
+  bySize.forEach(({ i }, rank) => {
+    caps[i] = sorted[rank]
+  })
+  return caps
 }
 
 function nearestIndex(p: GeoPoint, centroids: GeoPoint[]): number {
@@ -69,10 +106,10 @@ function nearestIndex(p: GeoPoint, centroids: GeoPoint[]): number {
   return idx
 }
 
-/** Move outliers from oversized clusters into the nearest one with room. */
-function balance(clusters: Place[][], centroids: GeoPoint[], target: number): void {
+/** Move outliers from over-cap clusters into the nearest one with room. */
+function balance(clusters: Place[][], centroids: GeoPoint[], caps: number[]): void {
   for (let c = 0; c < clusters.length; c++) {
-    while (clusters[c].length > target + 1) {
+    while (clusters[c].length > caps[c]) {
       // Evict the member farthest from its own centroid.
       let evictIdx = 0
       let worst = -1
@@ -88,7 +125,7 @@ function balance(clusters: Place[][], centroids: GeoPoint[], target: number): vo
       let dest = -1
       let bestDist = Infinity
       clusters.forEach((cl, i) => {
-        if (i === c || cl.length >= target) return
+        if (i === c || cl.length >= caps[i]) return
         const d = haversineKm(evicted, centroids[i])
         if (d < bestDist) {
           bestDist = d
