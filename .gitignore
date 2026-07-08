@@ -1,0 +1,7 @@
+node_modules/
+dist/
+public/icons/*.png
+dev-dist/
+*.local
+.DS_Store
+*.tsbuildinfo
