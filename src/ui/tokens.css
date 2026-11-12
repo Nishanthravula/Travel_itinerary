@@ -1,0 +1,104 @@
+/*
+ * Design tokens. Wayfarer borrows from wayfinding: a calm, cool-paper
+ * ground, ink text, and one signal blue used like the line on a transit
+ * map. Borders are hairlines; depth comes from layering, not shadows.
+ */
+:root {
+  --paper: #f6f7f5;
+  --surface: #ffffff;
+  --sunken: #eef0ed;
+  --ink: #15191c;
+  --ink-2: #4a545c;
+  --ink-3: #6b757d;
+  --line: #e1e4e0;
+  --line-strong: #c9cec9;
+  --signal: #2743d6;
+  --signal-ink: #ffffff;
+  --signal-wash: #e9edff;
+  --danger: #b3261e;
+  --danger-wash: #fdecea;
+  --warn-wash: #fff4dc;
+  --warn-ink: #6b4a00;
+
+  --font-ui: 'Figtree Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Bricolage Grotesque Variable', var(--font-ui);
+
+  /* Type scale — 1.2 minor third on a 16px base. */
+  --t-xs: 0.75rem;
+  --t-sm: 0.875rem;
+  --t-md: 1rem;
+  --t-lg: 1.2rem;
+  --t-xl: 1.44rem;
+  --t-2xl: 2.074rem;
+  --t-3xl: clamp(2.3rem, 5.2vw + 1rem, 4.1rem);
+
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 72px;
+
+  --r-sm: 8px;
+  --r-md: 14px;
+  --r-pill: 999px;
+
+  --pop-shadow: 0 12px 40px rgb(21 25 28 / 0.14), 0 0 0 1px var(--line);
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --fast: 150ms;
+
+  /* Per-day colours on the map and day tabs: distinct, not loud. */
+  --day-1: #2743d6;
+  --day-2: #b4541a;
+  --day-3: #177a5b;
+  --day-4: #9a2f7c;
+  --day-5: #8a6a00;
+  --day-6: #1b7f9c;
+  --day-7: #b23545;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --paper: #101315;
+    --surface: #171b1e;
+    --sunken: #0b0d0f;
+    --ink: #eceeed;
+    --ink-2: #b4bbc0;
+    --ink-3: #8b949b;
+    --line: #262c30;
+    --line-strong: #3a4247;
+    --signal: #93a5ff;
+    --signal-ink: #0d1330;
+    --signal-wash: #1c2347;
+    --danger: #ff8a80;
+    --danger-wash: #3a1614;
+    --warn-wash: #33290f;
+    --warn-ink: #f1d48a;
+    --pop-shadow: 0 12px 40px rgb(0 0 0 / 0.5), 0 0 0 1px var(--line-strong);
+    --day-1: #93a5ff;
+    --day-2: #f0a26b;
+    --day-3: #5fcfa6;
+    --day-4: #e08bc6;
+    --day-5: #d9bb52;
+    --day-6: #6cc7e2;
+    --day-7: #f38d9a;
+    color-scheme: dark;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --fast: 0ms;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
