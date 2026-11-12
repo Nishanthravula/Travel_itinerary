@@ -1,24 +1,22 @@
 import type {
+  CityInfo,
   DayWeather,
   Destination,
-  Itinerary,
+  GeoPoint,
   ItineraryDay,
+  ItineraryStop,
   Place,
+  PlacePool,
+  PlanOption,
+  Trip,
   TripRequest,
 } from '../types'
-import { addDaysISO, hhmmToMinutes } from '../types'
+import { addDaysISO, haversineKm, hhmmToMinutes } from '../types'
 import { FORECAST_HORIZON_DAYS, isBadWeather } from '../api/weather'
-import type { PlacePool } from '../api/places'
-import type { CityInfo } from '../types'
-import { clusterPlaces } from './cluster'
-import {
-  ARRIVAL_BUFFER_MIN,
-  DEPARTURE_BUFFER_MIN,
-  scheduleDay,
-} from './schedule'
-
-/** Sights we aim to visit per full day. */
-const SIGHTS_PER_DAY = 5
+import { centroidOf, clusterPlaces } from './cluster'
+import { ARRIVAL_BUFFER_MIN, DEPARTURE_BUFFER_MIN, scheduleDay } from './schedule'
+import { STYLES, STYLE_ORDER, type PlanStyle } from './styles'
+import { TRANSPORT } from './transport'
 
 export interface PlannerInputs {
   request: TripRequest
@@ -28,31 +26,108 @@ export interface PlannerInputs {
   cityInfo: CityInfo
 }
 
-/**
- * Build the full optimized itinerary:
- *
- * 1. Take the top-scored sights (famous places + one park per day mixed in).
- * 2. Cluster them geographically — one tight cluster per day.
- * 3. Match clusters to dates so outdoor-heavy days land on the best
- *    weather and indoor-heavy days absorb the rain.
- * 4. Trim the first/last day around flight arrival/departure.
- * 5. Fill each day's timeline with sights, an authentic lunch/dinner and
- *    a local café near where the traveller will actually be.
- */
-export function buildItinerary(inputs: PlannerInputs): Itinerary {
-  const { request, destination, pool, weatherByDate, cityInfo } = inputs
-  const days = Math.max(1, Math.min(14, request.days))
+/** Two options sharing more than this share of sights are near-duplicates. */
+const MAX_OVERLAP = 0.8
+/** A notable sight this close to a plan's base names its neighbourhood. */
+const BASE_LABEL_KM = 1
+const FOOD_KINDS = new Set(['restaurant', 'cafe', 'market'])
 
-  // --- 1. Candidate sights: famous places plus the best city parks.
-  const parkPicks = pool.parks.slice(0, days)
-  const sightBudget = days * SIGHTS_PER_DAY
+const isSightStop = (s: ItineraryStop) => !FOOD_KINDS.has(s.place.kind)
+
+/**
+ * Build every plan option for a trip from one fetched pool of places.
+ *
+ * Options are built in a fixed order (highlights → food → easy). An option
+ * is dropped when it would be a near-duplicate of one already kept or has
+ * too few sights to fill the days — small towns get fewer, honest options
+ * rather than three copies of the same plan.
+ */
+export function buildTrip(inputs: PlannerInputs): Trip {
+  const { request, destination, pool, cityInfo } = inputs
+  const days = clampDays(request.days)
+  const normalized: TripRequest = { ...request, days }
+  const runInputs = { ...inputs, request: normalized }
+
+  const usedFood = new Set<string>()
+  const options: PlanOption[] = []
+  for (const id of STYLE_ORDER) {
+    const option = buildOption(runInputs, STYLES[id], usedFood)
+    if (options.length > 0) {
+      const tooThin = option.summary.sightCount < days
+      const duplicate = options.some((kept) => optionOverlap(kept, option) > MAX_OVERLAP)
+      if (tooThin || duplicate) continue
+    }
+    options.push(option)
+  }
+
+  const todayLocal = new Date().toISOString().slice(0, 10)
+  const lastForecastable = addDaysISO(todayLocal, FORECAST_HORIZON_DAYS - 1)
+  const lastDate = addDaysISO(request.startDate, days - 1)
+
+  return {
+    id: `${destination.name}-${request.startDate}-${Date.now().toString(36)}`,
+    createdAt: new Date().toISOString(),
+    request: normalized,
+    destination,
+    cityInfo,
+    options,
+    parks: [...pool.nationalParks.slice(0, 6), ...pool.parks.slice(0, 3)],
+    forecastPartial: lastDate > lastForecastable,
+    notice:
+      options.length < STYLE_ORDER.length
+        ? `Only ${options.length} distinct plan${options.length === 1 ? '' : 's'} — there isn't enough mapped data around ${destination.name} for more.`
+        : undefined,
+  }
+}
+
+/**
+ * Build one plan option:
+ *
+ * 1. Rank candidate sights by notability plus the style's own weighting.
+ * 2. Cluster them geographically — one tight cluster per day.
+ * 3. Match clusters to dates so outdoor-heavy days get the best weather.
+ * 4. Trim the first/last day around flights.
+ * 5. Lay out each day as a timeline with travel time between stops.
+ *
+ * `avoidFoodIds` holds food picks of options built earlier; they are
+ * avoided while the pool has enough alternatives, and this option's own
+ * picks are added to it.
+ */
+export function buildOption(
+  inputs: PlannerInputs,
+  style: PlanStyle,
+  avoidFoodIds: Set<string>,
+): PlanOption {
+  const { request, destination, pool, weatherByDate } = inputs
+  const days = clampDays(request.days)
+  const profile = TRANSPORT[request.transport]
+
+  // --- 1. Candidates.
+  const nature = profile.includeNature
+    ? pool.nationalParks
+        .filter((p) => haversineKm(p, destination) <= profile.radiusKm)
+        .slice(0, Math.ceil(days / 3))
+    : []
+  const weighted = (p: Place) => p.score + style.sightWeight(p)
+  const budget = Math.max(days * style.sightsPerDay - nature.length, days)
   const candidates: Place[] = [
-    ...pool.sights.slice(0, Math.max(sightBudget - parkPicks.length, days * 2)),
-    ...parkPicks,
+    ...[...pool.sights, ...pool.parks.slice(0, days * 2)]
+      .sort((a, b) => weighted(b) - weighted(a) || a.distanceKm - b.distanceKm)
+      .slice(0, budget),
+    ...nature,
   ]
 
-  // --- 2. One geographic cluster per day.
-  const clusters = clusterPlaces(candidates, days)
+  // --- 2. One geographic cluster per day, trimmed to the style's pace.
+  const clusters = clusterPlaces(candidates, days).map((cluster) => {
+    const keep = [...cluster]
+    while (keep.length > style.sightsPerDay) {
+      const droppable = keep.filter((p) => p.kind !== 'national_park')
+      if (droppable.length === 0) break
+      const weakest = droppable.reduce((w, p) => (weighted(p) < weighted(w) ? p : w))
+      keep.splice(keep.indexOf(weakest), 1)
+    }
+    return keep
+  })
 
   // --- 3. Weather-aware cluster→date assignment.
   const dates = Array.from({ length: days }, (_, i) => addDaysISO(request.startDate, i))
@@ -60,6 +135,17 @@ export function buildItinerary(inputs: PlannerInputs): Itinerary {
 
   // --- 4+5. Schedule each day.
   const usedIds = new Set<string>()
+  const seedIfEnough = (list: Place[], perDay: number) => {
+    const fresh = list.filter((p) => !avoidFoodIds.has(p.id))
+    if (fresh.length >= days * perDay) {
+      for (const p of list) if (avoidFoodIds.has(p.id)) usedIds.add(p.id)
+    }
+  }
+  seedIfEnough(pool.restaurants, 2)
+  seedIfEnough(pool.cafes, 1)
+  seedIfEnough(pool.markets, 1)
+  const seeded = new Set(usedIds)
+
   const itineraryDays: ItineraryDay[] = dates.map((date, i) => {
     const weather = weatherByDate.get(date)
     const notes: string[] = []
@@ -69,7 +155,7 @@ export function buildItinerary(inputs: PlannerInputs): Itinerary {
     if (i === 0 && request.flights.arrivalTime) {
       notBefore = hhmmToMinutes(request.flights.arrivalTime) + ARRIVAL_BUFFER_MIN
       notes.push(
-        `Flight ${request.flights.arrivalFlight ?? ''} lands at ${request.flights.arrivalTime}. ` +
+        `Flight${request.flights.arrivalFlight ? ` ${request.flights.arrivalFlight}` : ''} lands at ${request.flights.arrivalTime}. ` +
           `Plan starts after ~2.5h for immigration, transfer and check-in.`,
       )
     }
@@ -85,47 +171,78 @@ export function buildItinerary(inputs: PlannerInputs): Itinerary {
       sights: order[i],
       restaurants: pool.restaurants,
       cafes: pool.cafes,
+      markets: pool.markets,
       weather,
       notBefore,
       notAfter,
       usedIds,
       cityCenter: destination,
+      style,
+      transport: request.transport,
     })
 
-    if (!weather) {
-      notes.push(
-        'Weather forecast not yet available for this date — reopen the app closer to departure for a live forecast.',
-      )
+    if (request.travellers >= 5 && stops.some((s) => s.place.kind === 'restaurant')) {
+      notes.push(`Reserve ahead for ${request.travellers} — tables for larger groups go early.`)
     }
 
-    return {
-      date,
-      label: `Day ${i + 1}`,
-      weather,
-      stops,
-      notes: [...notes, ...dayNotes],
-    }
+    return { date, label: `Day ${i + 1}`, weather, stops, notes: [...notes, ...dayNotes] }
   })
 
-  const todayLocal = new Date().toISOString().slice(0, 10)
-  const lastForecastable = addDaysISO(todayLocal, FORECAST_HORIZON_DAYS - 1)
+  for (const id of usedIds) if (!seeded.has(id)) avoidFoodIds.add(id)
+
+  // --- Summary and base.
+  const allStops = itineraryDays.flatMap((d) => d.stops)
+  const sightStops = allStops.filter(isSightStop)
+  const inTown = allStops.filter((s) => s.place.kind !== 'national_park').map((s) => s.place)
+  const base: GeoPoint = centroidOf(inTown) ?? { lat: destination.lat, lon: destination.lon }
 
   return {
-    id: `${destination.name}-${request.startDate}-${Date.now().toString(36)}`,
-    createdAt: new Date().toISOString(),
-    request: { ...request, days },
-    destination,
-    cityInfo,
+    style: style.id,
+    title: style.title,
+    tagline: style.tagline,
     days: itineraryDays,
-    parks: [...pool.nationalParks.slice(0, 6), ...pool.parks.slice(0, 3)],
-    forecastPartial: dates.some((d) => d > lastForecastable),
+    base,
+    stays: [],
+    summary: {
+      sightCount: sightStops.length,
+      travelMin: allStops.reduce((sum, s) => sum + (s.travelFromPrevMin ?? 0), 0),
+      indoorShare:
+        sightStops.length === 0
+          ? 0
+          : sightStops.filter((s) => s.place.indoor).length / sightStops.length,
+      headlineSights: [...sightStops]
+        .sort((a, b) => b.place.score - a.place.score)
+        .slice(0, 3)
+        .map((s) => s.place.name),
+      baseLabel: baseLabel(base, pool.sights, destination.name),
+    },
   }
 }
+
+/** Share of sights two options have in common (Jaccard index, 0–1). */
+export function optionOverlap(a: PlanOption, b: PlanOption): number {
+  const ids = (o: PlanOption) =>
+    new Set(o.days.flatMap((d) => d.stops).filter(isSightStop).map((s) => s.place.id))
+  const A = ids(a)
+  const B = ids(b)
+  if (A.size === 0 && B.size === 0) return 1
+  let shared = 0
+  for (const id of A) if (B.has(id)) shared++
+  return shared / (A.size + B.size - shared)
+}
+
+function baseLabel(base: GeoPoint, sights: Place[], city: string): string {
+  const landmark = sights
+    .filter((p) => haversineKm(p, base) <= BASE_LABEL_KM)
+    .sort((a, b) => b.score - a.score)[0]
+  return landmark ? `near ${landmark.name}` : `Central ${city}`
+}
+
+const clampDays = (days: number) => Math.max(1, Math.min(14, Math.round(days) || 1))
 
 /**
  * Pair day-clusters with dates: the most outdoor-heavy cluster gets the
  * best-weather date, the most indoor-friendly cluster soaks up the worst.
- * Arrival/departure days keep their (shorter) clusters in place.
  */
 function assignClustersToDates(
   clusters: Place[][],
@@ -135,25 +252,20 @@ function assignClustersToDates(
   const n = dates.length
   if (n <= 1) return clusters
 
-  // Only reshuffle interior days; day 1 and the last day are flight-bound.
-  const swappable: number[] = []
-  for (let i = 0; i < n; i++) swappable.push(i)
-
+  const indices = dates.map((_, i) => i)
   const weatherScore = (date: string): number => {
     const w = weatherByDate.get(date)
     if (!w) return 0.5 // unknown → neutral
     if (isBadWeather(w)) return 0
     return 1 - w.precipProbability / 100
   }
-  const outdoorness = (cluster: Place[]): number => {
-    if (cluster.length === 0) return 0
-    return cluster.filter((p) => !p.indoor).length / cluster.length
-  }
+  const outdoorness = (cluster: Place[]): number =>
+    cluster.length === 0 ? 0 : cluster.filter((p) => !p.indoor).length / cluster.length
 
-  const datesByWeather = [...swappable].sort(
+  const datesByWeather = [...indices].sort(
     (a, b) => weatherScore(dates[b]) - weatherScore(dates[a]),
   )
-  const clustersByOutdoor = [...swappable].sort(
+  const clustersByOutdoor = [...indices].sort(
     (a, b) => outdoorness(clusters[b]) - outdoorness(clusters[a]),
   )
 
