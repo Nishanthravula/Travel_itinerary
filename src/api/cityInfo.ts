@@ -1,4 +1,5 @@
 import type { CityInfo, Destination } from '../types'
+import { fetchJson } from './http'
 
 interface WikiSummary {
   extract?: string
@@ -16,12 +17,12 @@ interface RestCountry {
  * country facts (currency, languages, driving side) from REST Countries.
  * Both are best-effort — the itinerary still works if either fails.
  */
-export async function fetchCityInfo(dest: Destination): Promise<CityInfo> {
+export async function fetchCityInfo(dest: Destination, signal?: AbortSignal): Promise<CityInfo> {
   const info: CityInfo = { timezone: dest.timezone }
 
   const [wiki, country] = await Promise.allSettled([
-    fetchWikiSummary(dest),
-    fetchCountryFacts(dest.countryCode),
+    fetchWikiSummary(dest, signal),
+    fetchCountryFacts(dest.countryCode, signal),
   ])
 
   if (wiki.status === 'fulfilled' && wiki.value) {
@@ -40,27 +41,33 @@ export async function fetchCityInfo(dest: Destination): Promise<CityInfo> {
   return info
 }
 
-async function fetchWikiSummary(dest: Destination): Promise<WikiSummary | null> {
+async function fetchWikiSummary(
+  dest: Destination,
+  signal?: AbortSignal,
+): Promise<WikiSummary | null> {
   // Try "City" first; disambiguate with country if that page is missing.
   for (const title of [dest.name, `${dest.name}, ${dest.country}`]) {
-    const res = await fetch(
-      `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`,
-      { headers: { Accept: 'application/json' } },
-    )
-    if (res.ok) {
-      const data = (await res.json()) as WikiSummary & { type?: string }
+    try {
+      const data = await fetchJson<WikiSummary & { type?: string }>(
+        `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`,
+        { init: { headers: { Accept: 'application/json' } }, timeoutMs: 8000, retries: 0, signal },
+      )
       if (data.extract && data.type !== 'disambiguation') return data
+    } catch {
+      // missing page or network trouble — try the next title, then give up
     }
   }
   return null
 }
 
-async function fetchCountryFacts(code: string): Promise<RestCountry | null> {
+async function fetchCountryFacts(
+  code: string,
+  signal?: AbortSignal,
+): Promise<RestCountry | null> {
   if (!code) return null
-  const res = await fetch(
+  const data = await fetchJson<RestCountry | RestCountry[]>(
     `https://restcountries.com/v3.1/alpha/${code}?fields=currencies,languages,car`,
+    { timeoutMs: 8000, retries: 0, signal },
   )
-  if (!res.ok) return null
-  const data = (await res.json()) as RestCountry | RestCountry[]
   return Array.isArray(data) ? (data[0] ?? null) : data
 }
