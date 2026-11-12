@@ -22,6 +22,7 @@ export type PlaceKind =
   | 'cafe'
   | 'park'
   | 'national_park'
+  | 'market'
 
 export interface Place extends GeoPoint {
   id: string
@@ -55,11 +56,57 @@ export interface FlightDetails {
   departureFlight?: string
 }
 
+export type TransportMode = 'walk' | 'transit' | 'car'
+export type StyleId = 'highlights' | 'food' | 'easy'
+export type StayType = 'hotel' | 'guest_house' | 'hostel' | 'apartment'
+
 export interface TripRequest {
   destinationQuery: string
-  startDate: string // ISO yyyy-mm-dd
+  startDate: string // ISO yyyy-mm-dd, first day
+  endDate: string // ISO yyyy-mm-dd, last day (inclusive)
+  days: number // derived: inclusive day count, 1–14
+  travellers: number // 1–12
+  transport: TransportMode
+  flights: FlightDetails
+}
+
+/** Request shape saved by v1 of the app; kept for migration only. */
+export interface LegacyTripRequest {
+  destinationQuery: string
+  startDate: string
   days: number
   flights: FlightDetails
+}
+
+/** A place to stay. Optional price/rating/photo are only ever filled by a
+ *  provider that genuinely has them — the open-data provider never does. */
+export interface Stay extends GeoPoint {
+  id: string
+  name: string
+  type: StayType
+  stars?: number
+  website?: string
+  parking?: boolean
+  score: number
+  price?: string
+  rating?: number
+  photoUrl?: string
+}
+
+export interface RankedStay extends Stay {
+  distanceFromBaseKm: number
+  bookingUrl: string
+}
+
+/** Everything fetched for a destination, before any planning. */
+export interface PlacePool {
+  sights: Place[]
+  restaurants: Place[]
+  cafes: Place[]
+  markets: Place[]
+  parks: Place[]
+  nationalParks: Place[]
+  stays: Stay[]
 }
 
 export interface ItineraryStop {
@@ -70,6 +117,8 @@ export interface ItineraryStop {
   durationMin: number
   /** Why this slot (e.g. "sunset views", "indoor — rain expected"). */
   note?: string
+  /** Estimated minutes to get here from the previous stop. */
+  travelFromPrevMin?: number
 }
 
 export interface ItineraryDay {
@@ -90,10 +139,48 @@ export interface CityInfo {
   timezone: string
 }
 
-export interface Itinerary {
+export interface OptionSummary {
+  sightCount: number
+  /** Total estimated minutes spent moving between stops, whole trip. */
+  travelMin: number
+  /** Share of sights that are indoor, 0–1. */
+  indoorShare: number
+  headlineSights: string[]
+  baseLabel: string
+}
+
+/** One complete way to spend the trip. */
+export interface PlanOption {
+  style: StyleId
+  title: string
+  tagline: string
+  days: ItineraryDay[]
+  /** Where this plan's stops centre — stays are ranked around it. */
+  base: GeoPoint
+  stays: RankedStay[]
+  summary: OptionSummary
+}
+
+export interface Trip {
   id: string
   createdAt: string
   request: TripRequest
+  destination: Destination
+  cityInfo: CityInfo
+  options: PlanOption[]
+  /** Notable parks/reserves worth a detour, incl. beyond the city radius. */
+  parks: Place[]
+  /** True if the trip dates are beyond the reliable forecast horizon. */
+  forecastPartial: boolean
+  /** Shown above the options, e.g. when fewer than three could be built. */
+  notice?: string
+}
+
+/** Single-plan trip saved by v1 of the app; kept for migration only. */
+export interface LegacyItinerary {
+  id: string
+  createdAt: string
+  request: LegacyTripRequest
   destination: Destination
   cityInfo: CityInfo
   days: ItineraryDay[]
@@ -118,6 +205,12 @@ export const addDaysISO = (isoDate: string, days: number): string => {
   const d = new Date(`${isoDate}T00:00:00Z`)
   d.setUTCDate(d.getUTCDate() + days)
   return d.toISOString().slice(0, 10)
+}
+
+/** Inclusive number of days from start to end (same day → 1). */
+export const daysBetweenInclusive = (startISO: string, endISO: string): number => {
+  const ms = Date.parse(`${endISO}T00:00:00Z`) - Date.parse(`${startISO}T00:00:00Z`)
+  return Math.round(ms / 86_400_000) + 1
 }
 
 export const haversineKm = (a: GeoPoint, b: GeoPoint): number => {
