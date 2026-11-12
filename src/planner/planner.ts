@@ -15,6 +15,7 @@ import { addDaysISO, haversineKm, hhmmToMinutes } from '../types'
 import { FORECAST_HORIZON_DAYS, isBadWeather } from '../api/weather'
 import { centroidOf, clusterPlaces } from './cluster'
 import { ARRIVAL_BUFFER_MIN, DEPARTURE_BUFFER_MIN, scheduleDay } from './schedule'
+import { rankStays } from './stays'
 import { STYLES, STYLE_ORDER, type PlanStyle } from './styles'
 import { TRANSPORT } from './transport'
 
@@ -202,7 +203,7 @@ export function buildOption(
     tagline: style.tagline,
     days: itineraryDays,
     base,
-    stays: [],
+    stays: rankStays(pool.stays, base, request, destination.name),
     summary: {
       sightCount: sightStops.length,
       travelMin: allStops.reduce((sum, s) => sum + (s.travelFromPrevMin ?? 0), 0),
