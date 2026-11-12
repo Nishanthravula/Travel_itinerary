@@ -1,0 +1,9 @@
+{
+ "type": "standard",
+ "extract": "Lisbon is the capital and largest city of Portugal, set on seven hills at the mouth of the Tagus.",
+ "content_urls": {
+  "desktop": {
+   "page": "https://en.wikipedia.org/wiki/Lisbon"
+  }
+ }
+}

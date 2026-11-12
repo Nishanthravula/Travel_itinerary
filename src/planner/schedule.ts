@@ -3,7 +3,7 @@ import { haversineKm, hhmmToMinutes } from '../types'
 import { isBadWeather } from '../api/weather'
 import { centroidOf, orderByRoute } from './cluster'
 import type { PlanStyle } from './styles'
-import { hopMinutes } from './transport'
+import { hopBetween, hopMinutes } from './transport'
 
 /** Time (minutes) a traveller needs after landing before sightseeing:
  *  immigration, luggage, transfer, hotel drop-off. */
@@ -31,6 +31,7 @@ const EXTRA_MIN = 45
 const SUNSET_MIN = 45
 /** A walking leg longer than this gets a "consider transit" note. */
 const LONG_WALK_MIN = 30
+const EXTRA_NOTE = 'Local favourite — a market, bakery or bar worth a stop'
 
 export interface DayInputs {
   sights: Place[]
@@ -119,7 +120,8 @@ export function scheduleDay(inputs: DayInputs): ScheduledDay {
     note: string | undefined,
     opts: { earliest?: number; mustEndBy: number; mustStartBy: number },
   ): boolean => {
-    const travel = lastPos ? hopMinutes(lastPos, place, transport) : undefined
+    const hop = lastPos ? hopBetween(lastPos, place, transport) : undefined
+    const travel = hop?.minutes
     const startMin = roundUp5(Math.max(t + (travel ?? 0), opts.earliest ?? 0))
     if (startMin > opts.mustStartBy || startMin + durationMin > opts.mustEndBy) return false
     if (travel !== undefined && transport === 'walk' && travel > LONG_WALK_MIN && lastPos) {
@@ -128,7 +130,7 @@ export function scheduleDay(inputs: DayInputs): ScheduledDay {
         `Long walk between ${from} and ${place.name} (≈ ${travel} min) — consider transit for this leg.`,
       )
     }
-    stops.push({ place, startMin, durationMin, note, travelFromPrevMin: travel })
+    stops.push({ place, startMin, durationMin, note, travelFromPrevMin: travel, travelBy: hop?.by })
     t = startMin + durationMin
     lastPos = place
     return true
@@ -147,15 +149,17 @@ export function scheduleDay(inputs: DayInputs): ScheduledDay {
   // Each pass either adds a stop, retires a slot, or jumps the clock forward.
   for (let guard = 0; guard < 40 && !dinner; guard++) {
     const sight = nextSight()
+    /** When the next sight would finish — never, if there is none to place. */
     const sightEnd = sight
       ? t + (lastPos ? hopMinutes(lastPos, sight.place, transport) : 0) + sight.duration
-      : Infinity
+      : null
+    const overruns = (limit: number) => sightEnd !== null && sightEnd > limit
 
     if (!lunch && t >= LUNCH_TOO_LATE) {
       lunch = true // arrived too late for lunch
       continue
     }
-    if (!lunch && (t >= LUNCH_DUE || sightEnd > LUNCH_LATEST_SIGHT_END)) {
+    if (!lunch && (t >= LUNCH_DUE || overruns(LUNCH_LATEST_SIGHT_END))) {
       lunch = true
       const pick = pickNearest(inputs.restaurants, foodAnchor(), usedIds)
       if (pick && add(pick, style.mealMin, mealNote(pick), {
@@ -163,14 +167,14 @@ export function scheduleDay(inputs: DayInputs): ScheduledDay {
       })) usedIds.add(pick.id)
       continue
     }
-    if (!dinner && (t >= DINNER_DUE || sightEnd > DINNER_LATEST_SIGHT_END || sightEnd > softEnd)) {
+    if (t >= DINNER_DUE || overruns(DINNER_LATEST_SIGHT_END) || overruns(softEnd)) {
       // One last small stop before dinner for the food style.
       if (!extra && t >= EXTRA_FROM) {
         extra = true
         const pick = pickNearest(inputs.markets ?? [], foodAnchor(), usedIds)
-        if (pick && add(pick, EXTRA_MIN, 'Local favourite — a market, bakery or bar worth a stop', {
-          mustStartBy: softEnd, mustEndBy: hardEnd,
-        })) usedIds.add(pick.id)
+        if (pick && add(pick, EXTRA_MIN, EXTRA_NOTE, { mustStartBy: softEnd, mustEndBy: hardEnd })) {
+          usedIds.add(pick.id)
+        }
         continue
       }
       dinner = true
@@ -190,6 +194,14 @@ export function scheduleDay(inputs: DayInputs): ScheduledDay {
       }
       continue
     }
+    if (!sight && !extra && t >= EXTRA_FROM) {
+      extra = true
+      const pick = pickNearest(inputs.markets ?? [], foodAnchor(), usedIds)
+      if (pick && add(pick, EXTRA_MIN, EXTRA_NOTE, { mustStartBy: softEnd, mustEndBy: hardEnd })) {
+        usedIds.add(pick.id)
+      }
+      continue
+    }
     if (sight) {
       const note = sight.golden
         ? `Golden hour — sunset around ${weather?.sunset ?? '19:15'}`
@@ -203,7 +215,7 @@ export function scheduleDay(inputs: DayInputs): ScheduledDay {
       continue
     }
     // No sight to place: move the clock to the next thing that is due.
-    const next = !lunch ? LUNCH_DUE : !cafe ? CAFE_FROM : DINNER_DUE
+    const next = !lunch ? LUNCH_DUE : !cafe ? CAFE_FROM : !extra ? EXTRA_FROM : DINNER_DUE
     if (next <= t) break
     t = next
   }

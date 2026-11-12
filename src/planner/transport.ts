@@ -35,13 +35,30 @@ export const TRANSPORT: Record<TransportMode, TransportProfile> = {
 /** Below this the two stops are effectively the same place. */
 const SAME_PLACE_KM = 0.05
 
-/**
- * Estimated minutes to get from a to b. An estimate from straight-line
- * distance — not routing — so the UI always shows it with "≈".
- */
-export function hopMinutes(a: GeoPoint, b: GeoPoint, mode: TransportMode): number {
-  const km = haversineKm(a, b)
-  if (km < SAME_PLACE_KM) return 0
+const minutesBy = (km: number, mode: TransportMode): number => {
   const p = TRANSPORT[mode]
   return p.overheadMin + Math.round(((km * p.detour) / p.speedKmh) * 60)
+}
+
+/**
+ * How a traveller gets from a to b and roughly how long it takes. With
+ * transit or a car, a hop that is quicker on foot is walked — nobody waits
+ * for a tram to go 400 m. An estimate from straight-line distance, not
+ * routing, so the UI always shows it with "≈".
+ */
+export function hopBetween(
+  a: GeoPoint,
+  b: GeoPoint,
+  mode: TransportMode,
+): { minutes: number; by: TransportMode } {
+  const km = haversineKm(a, b)
+  if (km < SAME_PLACE_KM) return { minutes: 0, by: 'walk' }
+  const chosen = minutesBy(km, mode)
+  const onFoot = minutesBy(km, 'walk')
+  return onFoot <= chosen ? { minutes: onFoot, by: 'walk' } : { minutes: chosen, by: mode }
+}
+
+/** Estimated minutes from a to b for a trip using `mode`. */
+export function hopMinutes(a: GeoPoint, b: GeoPoint, mode: TransportMode): number {
+  return hopBetween(a, b, mode).minutes
 }

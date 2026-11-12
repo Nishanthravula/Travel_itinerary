@@ -79,6 +79,16 @@ describe('scheduleDay', () => {
     expect(stops.filter((s) => s.place.kind === 'market')).toHaveLength(1)
   })
 
+  it('still serves lunch, coffee and dinner at sensible hours on a day with one sight', () => {
+    const { stops } = day(lineOfSights(1, 0.8), STYLES.highlights, 'transit')
+    const [lunch, dinner] = stops.filter(isMeal)
+    expect(lunch.startMin).toBeGreaterThanOrEqual(hhmmToMinutes('12:00'))
+    expect(lunch.startMin).toBeLessThanOrEqual(hhmmToMinutes('13:00'))
+    expect(dinner.startMin).toBeGreaterThanOrEqual(hhmmToMinutes('18:30'))
+    const cafe = stops.find((s) => s.place.kind === 'cafe')!
+    expect(cafe.startMin).toBeGreaterThanOrEqual(hhmmToMinutes('15:15'))
+  })
+
   it('fits fewer sights on foot than by car when they are far apart', () => {
     const far = () => lineOfSights(6, 6)
     const walk = day(far(), STYLES.highlights, 'walk').stops.filter(isSight).length

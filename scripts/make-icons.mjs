@@ -32,7 +32,7 @@ const inTriangle = (px, py, [ax, ay], [bx, by], [cx, cy]) => {
 function makeIcon(size) {
   const S = size / 512 // design space is 512
   const r = 112 * S
-  const teal = [15, 118, 110]
+  const teal = [39, 67, 214]
   const white = [255, 255, 255]
   const mint = [204, 251, 241]
   const t1 = [

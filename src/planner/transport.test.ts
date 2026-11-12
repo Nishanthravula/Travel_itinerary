@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { daysBetweenInclusive, type GeoPoint } from '../types'
-import { TRANSPORT, hopMinutes } from './transport'
+import { TRANSPORT, hopBetween, hopMinutes } from './transport'
 
 // Two points 1 km apart along a meridian (1 km ≈ 0.008993° of latitude).
 const a: GeoPoint = { lat: 48.86, lon: 2.35 }
@@ -29,6 +29,19 @@ describe('hopMinutes', () => {
   })
   it('is zero for the same place, with no overhead', () => {
     expect(hopMinutes(a, a, 'car')).toBe(0)
+  })
+})
+
+describe('hopBetween', () => {
+  const near: GeoPoint = { lat: 48.86 + 0.4 / 111.195, lon: 2.35 }
+  it('walks a short hop when that beats waiting for transit', () => {
+    expect(hopBetween(a, near, 'transit')).toEqual({ minutes: 7, by: 'walk' })
+  })
+  it('walks a short hop rather than moving the car', () => {
+    expect(hopBetween(a, near, 'car').by).toBe('walk')
+  })
+  it('keeps the chosen mode for a longer hop', () => {
+    expect(hopBetween(a, b, 'transit')).toEqual({ minutes: 13, by: 'transit' })
   })
 })
 

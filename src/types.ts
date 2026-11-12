@@ -119,6 +119,8 @@ export interface ItineraryStop {
   note?: string
   /** Estimated minutes to get here from the previous stop. */
   travelFromPrevMin?: number
+  /** How that leg is covered — short hops are walked whatever the trip's mode. */
+  travelBy?: TransportMode
 }
 
 export interface ItineraryDay {

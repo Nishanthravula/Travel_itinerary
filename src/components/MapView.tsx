@@ -1,103 +1,162 @@
-import { useEffect, useRef } from 'react'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
-import type { Itinerary } from '../types'
+import { useEffect, useRef, useState } from 'react'
+import * as maplibregl from 'maplibre-gl'
+import 'maplibre-gl/dist/maplibre-gl.css'
+import type { PlanOption } from '../types'
 import { minutesToHHMM } from '../types'
 
-export const DAY_COLORS = [
-  '#0f766e',
-  '#4f46e5',
-  '#b45309',
-  '#be123c',
-  '#15803d',
-  '#7e22ce',
-  '#0e7490',
-  '#a16207',
-  '#c2410c',
-  '#1d4ed8',
-  '#9f1239',
-  '#166534',
-  '#6d28d9',
-  '#155e75',
-]
+/** OpenFreeMap: free, keyless vector tiles that permit production use. */
+const STYLE_URL = 'https://tiles.openfreemap.org/styles/positron'
 
-function markerIcon(color: string, label: string): L.DivIcon {
-  return L.divIcon({
-    className: 'day-marker',
-    html: `<span style="background:${color}">${label}</span>`,
-    iconSize: [26, 26],
-    iconAnchor: [13, 13],
-    popupAnchor: [0, -14],
-  })
+interface Props {
+  option: PlanOption
+  activeDay: number | 'stay'
+  theme: 'light' | 'dark'
 }
 
-/**
- * Leaflet map of the whole trip: numbered markers per stop, colour-coded
- * by day, with a dotted walking line per day. Tiles are cached by the
- * service worker, so previously viewed/downloaded areas work offline.
- */
-export default function MapView({ itinerary }: { itinerary: Itinerary }) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const mapRef = useRef<L.Map | null>(null)
+interface Pin {
+  lat: number
+  lon: number
+  label: string
+  title: string
+  detail: string
+  kind: 'stop' | 'stay' | 'base'
+}
 
-  useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-
-    const map = L.map(container, { scrollWheelZoom: false })
-    mapRef.current = map
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '© OpenStreetMap contributors',
-    }).addTo(map)
-
-    const bounds = L.latLngBounds([])
-    itinerary.days.forEach((day, di) => {
-      const color = DAY_COLORS[di % DAY_COLORS.length]
-      const path: L.LatLngExpression[] = []
-      day.stops.forEach((stop, si) => {
-        const ll: L.LatLngExpression = [stop.place.lat, stop.place.lon]
-        path.push(ll)
-        bounds.extend(ll)
-        L.marker(ll, { icon: markerIcon(color, String(si + 1)) })
-          .addTo(map)
-          .bindPopup(
-            `<strong>${escapeHtml(stop.place.name)}</strong><br/>${day.label} · ${minutesToHHMM(stop.startMin)}`,
-          )
-      })
-      if (path.length > 1) {
-        L.polyline(path, { color, weight: 3, opacity: 0.7, dashArray: '6 8' }).addTo(map)
-      }
-    })
-
-    if (bounds.isValid()) map.fitBounds(bounds.pad(0.15))
-    else map.setView([itinerary.destination.lat, itinerary.destination.lon], 13)
-
-    return () => {
-      map.remove()
-      mapRef.current = null
-    }
-  }, [itinerary])
-
-  return (
-    <div className="map-wrap card">
-      <div ref={containerRef} className="map" role="application" aria-label="Trip map" />
-      <div className="map-legend">
-        {itinerary.days.map((day, di) => (
-          <span key={day.date} className="legend-item">
-            <span
-              className="day-dot"
-              style={{ background: DAY_COLORS[di % DAY_COLORS.length] }}
-              aria-hidden
-            />
-            {day.label}
-          </span>
-        ))}
-      </div>
-    </div>
+function pinsFor(option: PlanOption, activeDay: number | 'stay'): Pin[] {
+  if (activeDay === 'stay') {
+    return [
+      { ...option.base, label: '', title: 'Centre of this plan', detail: '', kind: 'base' },
+      ...option.stays.map(
+        (s, i): Pin => ({
+          lat: s.lat,
+          lon: s.lon,
+          label: String.fromCharCode(65 + i),
+          title: s.name,
+          detail: 'Place to stay',
+          kind: 'stay',
+        }),
+      ),
+    ]
+  }
+  return (option.days[activeDay]?.stops ?? []).map(
+    (s, i): Pin => ({
+      lat: s.place.lat,
+      lon: s.place.lon,
+      label: String(i + 1),
+      title: s.place.name,
+      detail: minutesToHHMM(s.startMin),
+      kind: 'stop',
+    }),
   )
 }
 
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+/**
+ * The active day on a map: numbered pins matching the timeline, joined in
+ * order. Map data you have viewed is kept by the service worker, so it
+ * still draws without a connection.
+ */
+export default function MapView({ option, activeDay, theme }: Props) {
+  const container = useRef<HTMLDivElement>(null)
+  const mapRef = useRef<maplibregl.Map | null>(null)
+  const markers = useRef<maplibregl.Marker[]>([])
+  const [ready, setReady] = useState(false)
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    let map: maplibregl.Map
+    try {
+      map = new maplibregl.Map({
+        container: container.current!,
+        style: STYLE_URL,
+        center: [option.base.lon, option.base.lat],
+        zoom: 12,
+        attributionControl: { compact: true },
+        cooperativeGestures: true,
+      })
+    } catch {
+      setFailed(true) // no WebGL on this device
+      return
+    }
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
+    map.on('load', () => {
+      map.addSource('route', {
+        type: 'geojson',
+        data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } },
+      })
+      map.addLayer({
+        id: 'route',
+        type: 'line',
+        source: 'route',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': '#2743d6', 'line-width': 2.5, 'line-dasharray': [0.2, 2] },
+      })
+      setReady(true)
+    })
+    mapRef.current = map
+    return () => {
+      markers.current = []
+      mapRef.current = null
+      setReady(false)
+      map.remove()
+    }
+    // The map is created once; the effect below keeps it in step.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !ready) return
+    markers.current.forEach((m) => m.remove())
+
+    const pins = pinsFor(option, activeDay)
+    const dayColor =
+      activeDay === 'stay'
+        ? ''
+        : getComputedStyle(document.documentElement)
+            .getPropertyValue(`--day-${(activeDay % 7) + 1}`)
+            .trim()
+
+    markers.current = pins.map((pin) => {
+      const el = document.createElement('div')
+      el.className = `pin pin-${pin.kind}`
+      el.textContent = pin.label
+      if (pin.kind === 'stop' && dayColor) el.style.background = dayColor
+      el.setAttribute('role', 'img')
+      el.setAttribute('aria-label', [pin.label, pin.title].filter(Boolean).join('. '))
+      const body = document.createElement('div')
+      const strong = document.createElement('strong')
+      strong.textContent = pin.title
+      body.append(strong)
+      if (pin.detail) body.append(document.createElement('br'), pin.detail)
+      return new maplibregl.Marker({ element: el })
+        .setLngLat([pin.lon, pin.lat])
+        .setPopup(new maplibregl.Popup({ offset: 16, closeButton: false }).setDOMContent(body))
+        .addTo(map)
+    })
+
+    const line = pins.filter((p) => p.kind === 'stop').map((p) => [p.lon, p.lat])
+    ;(map.getSource('route') as maplibregl.GeoJSONSource | undefined)?.setData({
+      type: 'Feature',
+      properties: {},
+      geometry: { type: 'LineString', coordinates: line },
+    })
+    if (dayColor) map.setPaintProperty('route', 'line-color', dayColor)
+
+    if (pins.length === 1) {
+      map.easeTo({ center: [pins[0].lon, pins[0].lat], zoom: 14 })
+    } else if (pins.length > 1) {
+      const bounds = new maplibregl.LngLatBounds()
+      pins.forEach((p) => bounds.extend([p.lon, p.lat]))
+      map.fitBounds(bounds, { padding: 56, maxZoom: 15, duration: 400 })
+    }
+  }, [option, activeDay, ready, theme])
+
+  if (failed) {
+    return (
+      <div className="map map-loading">
+        <p>Map unavailable on this device. The plan itself is unaffected.</p>
+      </div>
+    )
+  }
+  return <div ref={container} className={`map map-${theme}`} data-testid="map" />
 }
