@@ -124,3 +124,62 @@ test('the search bar works from the keyboard alone', async ({ page, context }) =
   await page.keyboard.press('Enter') // submit the form
   await expect(page.getByTestId('option-card')).toHaveCount(3)
 })
+
+test('opening a saved single-plan trip while viewing the third option does not crash', async ({
+  page,
+  context,
+}) => {
+  await mockApis(context)
+  // A trip saved by v1 of the app: it migrates to one option, with no flights.
+  await context.addInitScript(() => {
+    if (localStorage.getItem('wayfarer.trips.v1')) return
+    localStorage.setItem(
+      'wayfarer.trips.v1',
+      JSON.stringify([
+        {
+          id: 'Kyoto-old',
+          createdAt: '2026-07-01T00:00:00.000Z',
+          request: { destinationQuery: 'Kyoto', startDate: '2026-08-01', days: 1, flights: {} },
+          destination: { name: 'Kyoto', lat: 35.01, lon: 135.77, country: 'Japan', countryCode: 'JP', timezone: 'Asia/Tokyo' },
+          cityInfo: { timezone: 'Asia/Tokyo' },
+          days: [{ date: '2026-08-01', label: 'Day 1', notes: [], stops: [
+            { place: { id: 'node/1', name: 'Kinkaku-ji', kind: 'attraction', lat: 35.04, lon: 135.73, score: 9, indoor: false, distanceKm: 4 }, startMin: 540, durationMin: 105 },
+          ] }],
+          parks: [],
+          forecastPartial: false,
+        },
+      ]),
+    )
+  })
+  await page.goto('/')
+  await page.getByRole('combobox', { name: 'Where' }).fill('Lisbon')
+  await page.getByRole('button', { name: 'Add flight times' }).click()
+  await page.getByLabel('Landing, first day').fill('10:00')
+  await page.getByTestId('search-submit').click()
+  await page.getByTestId('option-card').nth(2).getByRole('button', { name: /View plan/ }).click()
+  await expect(page.getByRole('heading', { name: 'Easy pace', level: 2 })).toBeVisible()
+
+  await page.getByTestId('saved-open').click()
+  await page.getByTestId('saved-item').filter({ hasText: 'Kyoto' }).getByRole('button').first().click()
+
+  await expect(page.getByRole('heading', { name: 'Kyoto, Japan' })).toBeVisible()
+  await expect(page.getByText('This page hit a problem')).toHaveCount(0)
+  await expect(page.getByTestId('option-card')).toHaveCount(1)
+  // The saved trip has no flights: the previous trip's times must not carry over.
+  await expect(page.getByRole('button', { name: 'Add flight times' })).toBeVisible()
+})
+
+test('reloading a planned trip reopens the saved copy instead of saving a duplicate', async ({
+  page,
+  context,
+}) => {
+  const calls = await mockApis(context)
+  await page.goto(`/?q=Lisbon&from=${inDays(3)}&to=${inDays(4)}&n=2&by=walk`)
+  await expect(page.getByTestId('option-card').first()).toBeVisible()
+  const geocodes = calls.geocode
+  await page.reload()
+  await expect(page.getByTestId('option-card').first()).toBeVisible()
+  expect(calls.geocode).toBe(geocodes) // nothing was looked up again
+  await page.getByTestId('saved-open').click()
+  await expect(page.getByTestId('saved-item')).toHaveCount(1)
+})

@@ -1,5 +1,5 @@
 import type { DayWeather, Destination } from '../types'
-import { addDaysISO } from '../types'
+import { addDaysISO, localISODate } from '../types'
 import { fetchJson, isAbort } from './http'
 
 /** Open-Meteo serves reliable daily forecasts up to 16 days ahead. */
@@ -29,7 +29,7 @@ export async function fetchTripWeather(
   days: number,
   signal?: AbortSignal,
 ): Promise<Map<string, DayWeather>> {
-  const todayLocal = new Date().toISOString().slice(0, 10)
+  const todayLocal = localISODate()
   const horizonEnd = addDaysISO(todayLocal, FORECAST_HORIZON_DAYS - 1)
   const endDate = addDaysISO(startDate, days - 1)
 

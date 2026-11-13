@@ -8,7 +8,7 @@ import { fetchTripWeather } from './api/weather'
 import { getCachedPool, poolKey, putCachedPool } from './offline/poolCache'
 import { deleteTrip, loadTrips, saveTrip } from './offline/storage'
 import { buildTrip } from './planner/planner'
-import { requestToParams } from './share'
+import { chooseDestination, requestToParams } from './share'
 
 export type PlanState =
   | { phase: 'idle' }
@@ -45,7 +45,8 @@ export function usePlanTrip() {
     history.replaceState(null, '', `${location.pathname}${qs}`)
   }
 
-  const plan = useCallback(async (request: TripRequest, picked?: Destination) => {
+  const plan = useCallback(async (original: TripRequest, picked?: Destination) => {
+    let request = original
     inFlight.current?.abort()
     const ctrl = new AbortController()
     inFlight.current = ctrl
@@ -59,22 +60,28 @@ export function usePlanTrip() {
         const found = await searchDestinations(request.destinationQuery, signal)
         if (found.length === 0) {
           throw new Error(
-            `No place called "${request.destinationQuery}" was found. Check the spelling, or add the country — "Kyoto, Japan".`,
+            `No place called "${request.destinationQuery}" was found. Check the spelling, or try the nearest larger town.`,
           )
         }
-        destination = found[0]
-        alternatives = found.slice(1).filter((d) => !sameSpot(d, found[0]))
+        destination = chooseDestination(found, request.near)!
+        const chosen = destination
+        alternatives = found.filter((d) => !sameSpot(d, chosen))
       }
+      // Remember exactly which place this was, for share links and re-planning.
+      request = { ...request, near: { lat: destination.lat, lon: destination.lon } }
 
       setState({
         phase: 'loading',
         step: `Gathering sights, food and stays in ${destination.name}`,
       })
       const key = poolKey(destination, request.transport)
+      let fromCache = true
       const [pool, weatherByDate, cityInfo] = await Promise.all([
-        getCachedPool(key).then(
-          (hit) => hit ?? overpassProvider.fetchPool(destination, request.transport, signal),
-        ),
+        getCachedPool(key).then((hit) => {
+          if (hit) return hit
+          fromCache = false
+          return overpassProvider.fetchPool(destination, request.transport, signal)
+        }),
         fetchTripWeather(destination, request.startDate, request.days, signal),
         fetchCityInfo(destination, signal),
       ])
@@ -85,7 +92,7 @@ export function usePlanTrip() {
           `There isn't enough mapped data around ${destination.name} to build a plan. Try the nearest larger town.`,
         )
       }
-      void putCachedPool(key, pool)
+      if (!fromCache) void putCachedPool(key, pool) // a hit must not renew its own expiry
 
       setState({ phase: 'loading', step: 'Building your plans' })
       const trip = buildTrip({ request, destination, pool, weatherByDate, cityInfo })
@@ -97,7 +104,7 @@ export function usePlanTrip() {
       setState({
         phase: 'error',
         message: explain(err, request.destinationQuery),
-        retry: () => void plan(request, picked),
+        retry: () => void plan(original, picked),
       })
     }
   }, [])

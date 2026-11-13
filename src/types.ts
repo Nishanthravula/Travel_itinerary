@@ -68,6 +68,8 @@ export interface TripRequest {
   travellers: number // 1–12
   transport: TransportMode
   flights: FlightDetails
+  /** The exact place meant, when several share the name ("Paris", Texas). */
+  near?: GeoPoint
 }
 
 /** Request shape saved by v1 of the app; kept for migration only. */
@@ -208,6 +210,10 @@ export const addDaysISO = (isoDate: string, days: number): string => {
   d.setUTCDate(d.getUTCDate() + days)
   return d.toISOString().slice(0, 10)
 }
+
+/** The calendar date where the traveller is (not the UTC date). */
+export const localISODate = (d: Date = new Date()): string =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
 /** Inclusive number of days from start to end (same day → 1). */
 export const daysBetweenInclusive = (startISO: string, endISO: string): number => {

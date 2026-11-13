@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Destination } from '../types'
-import { OVERPASS_MIRRORS, buildQuery, overpassProvider, parseOverpass, type OverpassElement } from './overpass'
+import { OVERPASS_MIRRORS, buildQuery, overpassProvider, parseOverpass, safeUrl, type OverpassElement } from './overpass'
 import { searchDestinations } from './geocode'
 
 const dest: Destination = {
@@ -42,7 +42,7 @@ describe('parseOverpass', () => {
   it('reads stays with type, stars and parking', () => {
     const pool = parseOverpass(
       [
-        node({ tourism: 'hotel', name: 'Grand', stars: '4', parking: 'yes', website: 'https://g.test' }),
+        node({ tourism: 'hotel', name: 'Grand', stars: '4', parking: 'yes', website: 'https://g.test/' }),
         node({ tourism: 'hostel', name: 'Bunk', stars: '4S' }),
         node({ tourism: 'apartment', name: 'Flat', parking: 'no' }),
         node({ tourism: 'guest_house', name: 'Ryokan' }),
@@ -50,7 +50,7 @@ describe('parseOverpass', () => {
       dest,
     )
     const by = Object.fromEntries(pool.stays.map((s) => [s.name, s]))
-    expect(by.Grand).toMatchObject({ type: 'hotel', stars: 4, parking: true, website: 'https://g.test' })
+    expect(by.Grand).toMatchObject({ type: 'hotel', stars: 4, parking: true, website: 'https://g.test/' })
     expect(by.Bunk).toMatchObject({ type: 'hostel', stars: 4 })
     expect(by.Flat.parking).toBe(false)
     expect(by.Ryokan.type).toBe('guest_house')
@@ -100,6 +100,33 @@ describe('parseOverpass', () => {
   })
 })
 
+describe('safeUrl', () => {
+  it('keeps http and https links', () => {
+    expect(safeUrl('https://hotel.pt/x')).toBe('https://hotel.pt/x')
+    expect(safeUrl('http://hotel.pt')).toBe('http://hotel.pt/')
+  })
+  it('completes a bare domain', () => {
+    expect(safeUrl('www.hotel.pt')).toBe('https://www.hotel.pt/')
+  })
+  it('drops anything that is not a web address', () => {
+    expect(safeUrl('javascript:alert(1)')).toBeUndefined()
+    expect(safeUrl('mailto:a@b.pt')).toBeUndefined()
+    expect(safeUrl('see reception')).toBeUndefined()
+    expect(safeUrl(undefined)).toBeUndefined()
+  })
+  it('is applied to places and stays', () => {
+    const pool = parseOverpass(
+      [
+        node({ tourism: 'hotel', name: 'H', website: 'www.h.pt' }),
+        node({ tourism: 'museum', name: 'M', website: 'javascript:alert(1)' }),
+      ],
+      dest,
+    )
+    expect(pool.stays[0].website).toBe('https://www.h.pt/')
+    expect(pool.sights[0].website).toBeUndefined()
+  })
+})
+
 describe('buildQuery', () => {
   it('searches as far as the transport mode reaches', () => {
     expect(buildQuery(dest, 'walk')).toContain('around:5000,35.01,135.77')
@@ -127,6 +154,26 @@ describe('overpassProvider', () => {
     expect(String(fetchMock.mock.calls[0][0])).toBe(OVERPASS_MIRRORS[0])
     expect(String(fetchMock.mock.calls[1][0])).toBe(OVERPASS_MIRRORS[1])
     expect(fetchMock.mock.calls[1][1].body).toBe(fetchMock.mock.calls[0][1].body)
+  })
+})
+
+describe('overpassProvider with a server-side timeout', () => {
+  it('does not accept a partial answer that Overpass marks as timed out', async () => {
+    vi.useFakeTimers()
+    const partial = () =>
+      new Response(
+        JSON.stringify({ elements: [node({ tourism: 'museum', name: 'M' })], remark: 'runtime error: Query timed out in "query" at line 3 after 41 seconds.' }),
+        { status: 200 },
+      )
+    const fetchMock = vi.fn(async () => partial())
+    vi.stubGlobal('fetch', fetchMock)
+    const p = overpassProvider.fetchPool(dest, 'transit').then(
+      () => 'resolved',
+      (e: unknown) => e,
+    )
+    await vi.advanceTimersByTimeAsync(300_000)
+    expect(await p).toMatchObject({ name: 'HttpError' })
+    expect(fetchMock).toHaveBeenCalledTimes(OVERPASS_MIRRORS.length)
   })
 })
 

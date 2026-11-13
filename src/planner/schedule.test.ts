@@ -3,7 +3,7 @@ import type { ItineraryStop, Place, TransportMode } from '../types'
 import { hhmmToMinutes } from '../types'
 import { ARRIVAL_BUFFER_MIN, DEPARTURE_BUFFER_MIN, scheduleDay, type DayInputs } from './schedule'
 import { STYLES, type PlanStyle } from './styles'
-import { dest, lineOfSights, place, rainy, sunny } from './testFixtures'
+import { KM, dest, lineOfSights, place, rainy, sunny } from './testFixtures'
 
 const food = () => ({
   restaurants: Array.from({ length: 10 }, () => place({ kind: 'restaurant', cuisine: 'french' })),
@@ -87,6 +87,27 @@ describe('scheduleDay', () => {
     expect(dinner.startMin).toBeGreaterThanOrEqual(hhmmToMinutes('18:30'))
     const cafe = stops.find((s) => s.place.kind === 'cafe')!
     expect(cafe.startMin).toBeGreaterThanOrEqual(hhmmToMinutes('15:15'))
+  })
+
+  it('eats near the day’s stops rather than at a higher-rated place across town', () => {
+    const sights = lineOfSights(4, 0.5)
+    const farStars = Array.from({ length: 14 }, (_, i) =>
+      place({ kind: 'restaurant', score: 9, lat: 48.86 + (8 + i * 0.1) * KM, lon: 2.35 }),
+    )
+    const localSpots = Array.from({ length: 4 }, (_, i) =>
+      place({ kind: 'restaurant', score: 2, lat: 48.86 + i * 0.3 * KM, lon: 2.352 }),
+    )
+    const { stops } = day(sights, STYLES.highlights, 'transit', { restaurants: [...farStars, ...localSpots] })
+    const meals = stops.filter(isMeal)
+    expect(meals).toHaveLength(2)
+    for (const m of meals) expect(localSpots.map((p) => p.id)).toContain(m.place.id)
+  })
+
+  it('still ends an easy-pace day with dinner when the last sight runs to the day’s end', () => {
+    for (const step of [0.3, 0.8, 1.5, 3]) {
+      const { stops } = day(lineOfSights(6, step), STYLES.easy, 'transit')
+      expect(stops.filter(isMeal), `sights ${step} km apart`).toHaveLength(2)
+    }
   })
 
   it('fits fewer sights on foot than by car when they are far apart', () => {

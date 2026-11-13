@@ -31,6 +31,10 @@ const EXTRA_MIN = 45
 const SUNSET_MIN = 45
 /** A walking leg longer than this gets a "consider transit" note. */
 const LONG_WALK_MIN = 30
+/** A meal this close to the traveller counts as "right here", km. */
+const FOOD_NEARBY_KM = 1.2
+/** Dinner may begin this long after sightseeing ends for the day. */
+const DINNER_GRACE_MIN = 45
 const EXTRA_NOTE = 'Local favourite — a market, bakery or bar worth a stop'
 
 export interface DayInputs {
@@ -180,7 +184,7 @@ export function scheduleDay(inputs: DayInputs): ScheduledDay {
       dinner = true
       const pick = pickNearest(inputs.restaurants, foodAnchor(), usedIds)
       if (pick && add(pick, style.mealMin, mealNote(pick), {
-        earliest: DINNER_EARLIEST, mustStartBy: softEnd, mustEndBy: hardEnd,
+        earliest: DINNER_EARLIEST, mustStartBy: softEnd + DINNER_GRACE_MIN, mustEndBy: hardEnd,
       })) usedIds.add(pick.id)
       continue
     }
@@ -228,13 +232,21 @@ function pickNearest(
   from: GeoPoint,
   usedIds: Set<string>,
 ): Place | undefined {
-  // Candidates arrive pre-sorted by score; among the strongest options,
-  // take the one closest to the traveller's current position.
-  const shortlist = candidates.filter((c) => !usedIds.has(c.id)).slice(0, 12)
-  if (shortlist.length === 0) return undefined
-  return shortlist.reduce((best, c) =>
-    haversineKm(c, from) < haversineKm(best, from) ? c : best,
-  )
+  // Eat where you are: the best-regarded place within a short walk of the
+  // traveller's position. Only when nothing is that close, the nearest.
+  const open = candidates
+    .filter((c) => !usedIds.has(c.id))
+    .map((place) => ({ place, km: haversineKm(place, from) }))
+  if (open.length === 0) return undefined
+  const nearby = open.filter((c) => c.km <= FOOD_NEARBY_KM)
+  if (nearby.length > 0) {
+    return nearby.reduce((best, c) =>
+      c.place.score > best.place.score || (c.place.score === best.place.score && c.km < best.km)
+        ? c
+        : best,
+    ).place
+  }
+  return open.reduce((best, c) => (c.km < best.km ? c : best)).place
 }
 
 function mealNote(pick: Place): string {

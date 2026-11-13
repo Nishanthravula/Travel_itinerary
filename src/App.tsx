@@ -8,6 +8,7 @@ import { placeLine } from './components/SearchBar/DestinationField'
 import { todayISO } from './components/SearchBar/dateRange'
 import Skeleton from './components/Skeleton'
 import { placeTitle, requestLine } from './format'
+import { findSaved } from './offline/storage'
 import { paramsToRequest, requestToParams } from './share'
 import { BookmarkIcon, LinkIcon } from './ui/icons'
 import { usePlanTrip } from './usePlanTrip'
@@ -35,14 +36,21 @@ export default function App() {
     [],
   )
   const [initial, setInitial] = useState<Partial<TripRequest>>(fromUrl.request)
-  const [optionIndex, setOptionIndex] = useState<number | null>(null)
+  /** Which option is open, and for which trip — never reused across trips. */
+  const [selection, setSelection] = useState<{ tripId: string; index: number } | null>(null)
   const [drawer, setDrawer] = useState(false)
   const [toast, setToast] = useState('')
 
   // A complete, valid share link plans itself; anything else only prefills.
+  // If that trip is already saved here, open it — no lookups, works offline.
   useEffect(() => {
-    if (fromUrl.runnable) void plan(fromUrl.request as TripRequest)
-  }, [fromUrl, plan])
+    if (!fromUrl.runnable) return
+    const saved = findSaved(trips, fromUrl.request)
+    if (saved) open(saved)
+    else void plan(fromUrl.request as TripRequest)
+    // Runs once for the address the page was opened with.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     if (!toast) return
@@ -53,9 +61,14 @@ export default function App() {
   const trip = state.phase === 'ready' ? state.trip : null
   const tripId = trip?.id
   useEffect(() => {
-    setOptionIndex(null)
     window.scrollTo({ top: 0 })
   }, [tripId])
+  const optionIndex =
+    trip && selection?.tripId === trip.id && selection.index < trip.options.length
+      ? selection.index
+      : null
+  const setOptionIndex = (index: number | null) =>
+    setSelection(trip && index !== null ? { tripId: trip.id, index } : null)
 
   const submit = (request: TripRequest, picked?: Destination) => void plan(request, picked)
 

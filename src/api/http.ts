@@ -16,7 +16,7 @@ export class HttpError extends Error {
   }
 }
 
-export interface FetchJsonOptions {
+export interface FetchJsonOptions<T = unknown> {
   init?: RequestInit
   /** Per-attempt timeout. */
   timeoutMs?: number
@@ -24,6 +24,8 @@ export interface FetchJsonOptions {
   retries?: number
   /** Caller cancellation — aborts immediately, never retried. */
   signal?: AbortSignal
+  /** Reject a well-formed but unusable answer by throwing an HttpError. */
+  validate?: (data: T) => void
 }
 
 const BACKOFF_MS = 600
@@ -38,10 +40,10 @@ const abortError = () => new DOMException('The request was cancelled.', 'AbortEr
  */
 export async function fetchJson<T>(
   url: string | URL | (string | URL)[],
-  opts: FetchJsonOptions = {},
+  opts: FetchJsonOptions<T> = {},
 ): Promise<T> {
   const urls = Array.isArray(url) ? url : [url]
-  const { init, timeoutMs = 12_000, retries = 2, signal } = opts
+  const { init, timeoutMs = 12_000, retries = 2, signal, validate } = opts
 
   let lastError: HttpError | undefined
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -49,7 +51,9 @@ export async function fetchJson<T>(
     if (attempt > 0) await sleep(BACKOFF_MS * 2 ** (attempt - 1), signal)
 
     try {
-      return await attemptOnce<T>(urls[attempt % urls.length], init, timeoutMs, signal)
+      const data = await attemptOnce<T>(urls[attempt % urls.length], init, timeoutMs, signal)
+      validate?.(data)
+      return data
     } catch (err) {
       if (!(err instanceof HttpError)) throw err // caller abort
       lastError = err

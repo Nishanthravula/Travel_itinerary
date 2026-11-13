@@ -9,7 +9,7 @@ import type {
 } from '../types'
 import { haversineKm } from '../types'
 import { TRANSPORT } from '../planner/transport'
-import { fetchJson } from './http'
+import { HttpError, fetchJson } from './http'
 import type { PlacesProvider } from './providers'
 
 /** Public Overpass instances, tried in order. All are shared, free services. */
@@ -20,7 +20,7 @@ export const OVERPASS_MIRRORS = [
 ]
 
 /** Food and stays are only useful near where the days are spent, km. */
-const FOOD_RADIUS_KM = 6
+const FOOD_RADIUS_KM = 10
 const STAY_RADIUS_KM = 12
 /** National/state parks and nature reserves are listed from this far, km. */
 const PARKS_RADIUS_KM = 80
@@ -50,7 +50,7 @@ export function buildQuery(dest: Destination, mode: TransportMode): string {
   // Well-known sights (those with a Wikidata entry) are fetched first and in
   // full, so a busy city's landmarks are never crowded out by the size cap.
   return `
-[out:json][timeout:60];
+[out:json][timeout:40];
 (
   nwr["tourism"~"${SIGHT_TOURISM.source}"]["name"]["wikidata"]${sights};
   nwr["historic"~"${SIGHT_HISTORIC.source}"]["name"]["wikidata"]${sights};
@@ -62,7 +62,7 @@ out center 400;
 );
 out center 150;
 nwr["amenity"="restaurant"]["name"]["cuisine"]${food};
-out center 250;
+out center 400;
 nwr["amenity"="cafe"]["name"]${food};
 out center 120;
 (
@@ -123,7 +123,25 @@ function scorePlace(tags: Record<string, string>, kind: PlaceKind): number {
 }
 
 const displayName = (tags: Record<string, string>) => tags['name:en'] || tags.name
-const websiteOf = (tags: Record<string, string>) => tags.website ?? tags['contact:website']
+/**
+ * OSM `website` tags are free text typed by anyone: often a bare domain,
+ * sometimes not a web address at all. Only http(s) links are kept.
+ */
+export function safeUrl(raw: string | undefined): string | undefined {
+  const text = raw?.trim().split(/[;\s]/)[0]
+  if (!text) return undefined
+  const candidate = /^[a-z][a-z0-9+.-]*:/i.test(text) ? text : `https://${text}`
+  try {
+    const url = new URL(candidate)
+    const isWeb = url.protocol === 'http:' || url.protocol === 'https:'
+    return isWeb && url.hostname.includes('.') ? url.toString() : undefined
+  } catch {
+    return undefined
+  }
+}
+
+const websiteOf = (tags: Record<string, string>) =>
+  safeUrl(tags.website) ?? safeUrl(tags['contact:website'])
 
 function position(el: OverpassElement): { lat: number; lon: number } | null {
   const lat = el.lat ?? el.center?.lat
@@ -216,15 +234,22 @@ export function parseOverpass(elements: OverpassElement[], dest: Destination): P
 /** Places and stays from OpenStreetMap via Overpass (free, keyless). */
 export const overpassProvider: PlacesProvider = {
   async fetchPool(dest, mode, signal) {
-    const data = await fetchJson<{ elements?: OverpassElement[] }>(OVERPASS_MIRRORS, {
+    const data = await fetchJson<{ elements?: OverpassElement[]; remark?: string }>(OVERPASS_MIRRORS, {
       init: {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: `data=${encodeURIComponent(buildQuery(dest, mode))}`,
       },
-      timeoutMs: 45_000,
+      timeoutMs: 50_000,
       retries: OVERPASS_MIRRORS.length - 1,
       signal,
+      // Overpass reports its own timeout as a 200 with partial results.
+      // A partial city must not be planned from, or cached.
+      validate: (d) => {
+        if (d.remark && /timed out|runtime error|out of memory/i.test(d.remark)) {
+          throw new HttpError('timeout', 'The places service ran out of time')
+        }
+      },
     })
     return parseOverpass(data.elements ?? [], dest)
   },

@@ -11,7 +11,7 @@ import type {
   Trip,
   TripRequest,
 } from '../types'
-import { addDaysISO, haversineKm, hhmmToMinutes } from '../types'
+import { addDaysISO, haversineKm, hhmmToMinutes, localISODate } from '../types'
 import { FORECAST_HORIZON_DAYS, isBadWeather } from '../api/weather'
 import { centroidOf, clusterPlaces } from './cluster'
 import { ARRIVAL_BUFFER_MIN, DEPARTURE_BUFFER_MIN, scheduleDay } from './schedule'
@@ -61,12 +61,12 @@ export function buildTrip(inputs: PlannerInputs): Trip {
     options.push(option)
   }
 
-  const todayLocal = new Date().toISOString().slice(0, 10)
+  const todayLocal = localISODate()
   const lastForecastable = addDaysISO(todayLocal, FORECAST_HORIZON_DAYS - 1)
   const lastDate = addDaysISO(request.startDate, days - 1)
 
   return {
-    id: `${destination.name}-${request.startDate}-${Date.now().toString(36)}`,
+    id: tripId(destination, normalized),
     createdAt: new Date().toISOString(),
     request: normalized,
     destination,
@@ -74,11 +74,35 @@ export function buildTrip(inputs: PlannerInputs): Trip {
     options,
     parks: [...pool.nationalParks.slice(0, 6), ...pool.parks.slice(0, 3)],
     forecastPartial: lastDate > lastForecastable,
-    notice:
-      options.length < STYLE_ORDER.length
-        ? `Only ${options.length} distinct plan${options.length === 1 ? '' : 's'} — there isn't enough mapped data around ${destination.name} for more.`
-        : undefined,
+    notice: noticeFor(options, destination.name, normalized),
   }
+}
+
+/**
+ * Stable id for a request: planning the same trip again replaces the saved
+ * copy instead of piling up duplicates.
+ */
+export function tripId(destination: Destination, r: TripRequest): string {
+  const f = r.flights
+  return [
+    destination.lat.toFixed(3),
+    destination.lon.toFixed(3),
+    r.startDate,
+    r.endDate,
+    r.travellers,
+    r.transport,
+    f.arrivalTime ?? '',
+    f.departureTime ?? '',
+  ].join('|')
+}
+
+function noticeFor(options: PlanOption[], city: string, r: TripRequest): string | undefined {
+  if (options.length >= STYLE_ORDER.length) return undefined
+  const hasFlights = Boolean(r.flights.arrivalTime || r.flights.departureTime)
+  if (hasFlights && options[0]?.summary.sightCount === 0) {
+    return 'Your flight times leave no time for sightseeing on this trip, so there is a single plan.'
+  }
+  return `Only ${options.length} distinct plan${options.length === 1 ? '' : 's'} — there isn't enough mapped data around ${city} for more.`
 }
 
 /**

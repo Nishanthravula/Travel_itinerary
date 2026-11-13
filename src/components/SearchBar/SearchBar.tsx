@@ -26,6 +26,8 @@ export default function SearchBar({ initial, busy, onSubmit }: Props) {
   const today = todayISO()
   const [query, setQuery] = useState(initial.destinationQuery ?? '')
   const [picked, setPicked] = useState<Destination | undefined>()
+  /** Position of the place meant, kept while the text still names it. */
+  const [near, setNear] = useState(initial.near)
   const [range, setRange] = useState(() =>
     clampRange(
       initial.startDate ?? addDaysISO(today, 7),
@@ -43,13 +45,16 @@ export default function SearchBar({ initial, busy, onSubmit }: Props) {
 
   // A saved trip or share link was opened: show its request in the bar.
   useEffect(() => {
-    if (initial.destinationQuery !== undefined) setQuery(initial.destinationQuery)
+    setQuery(initial.destinationQuery ?? '')
     if (initial.startDate && initial.endDate) {
       setRange(clampRange(initial.startDate, initial.endDate, todayISO()))
     }
     if (initial.travellers) setTravellers(initial.travellers)
     if (initial.transport) setTransport(initial.transport)
     setPicked(undefined)
+    setNear(initial.near)
+    setFlights(initial.flights ?? {})
+    setShowFlights(Boolean(initial.flights?.arrivalTime || initial.flights?.departureTime))
   }, [initial])
 
   const toggle = (s: Exclude<Segment, null>) => setOpen((cur) => (cur === s ? null : s))
@@ -61,6 +66,8 @@ export default function SearchBar({ initial, busy, onSubmit }: Props) {
     if (!destinationQuery || busy) return
     setOpen(null)
     const clean = (s?: string) => s?.trim() || undefined
+    // Only trust the picked suggestion while the text still names it.
+    const usePicked = picked && picked.name === destinationQuery ? picked : undefined
     onSubmit(
       {
         destinationQuery,
@@ -69,6 +76,7 @@ export default function SearchBar({ initial, busy, onSubmit }: Props) {
         days: daysBetweenInclusive(range.from, range.to),
         travellers,
         transport,
+        near: usePicked ? { lat: usePicked.lat, lon: usePicked.lon } : near,
         flights: showFlights
           ? {
               arrivalTime: clean(flights.arrivalTime),
@@ -78,8 +86,7 @@ export default function SearchBar({ initial, busy, onSubmit }: Props) {
             }
           : {},
       },
-      // Only trust the picked suggestion while the text still names it.
-      picked && picked.name === destinationQuery ? picked : undefined,
+      usePicked,
     )
   }
 
@@ -99,8 +106,12 @@ export default function SearchBar({ initial, busy, onSubmit }: Props) {
           onChange={(text) => {
             setQuery(text)
             if (picked && text !== picked.name) setPicked(undefined)
+            setNear(undefined)
           }}
-          onPick={(d) => setPicked(d)}
+          onPick={(d) => {
+            setPicked(d)
+            setNear({ lat: d.lat, lon: d.lon })
+          }}
         />
 
         <div className="segment">

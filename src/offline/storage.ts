@@ -1,4 +1,4 @@
-import type { ItineraryStop, LegacyItinerary, Trip } from '../types'
+import type { ItineraryStop, LegacyItinerary, Trip, TripRequest } from '../types'
 import { addDaysISO } from '../types'
 
 const KEY = 'wayfarer.trips.v2'
@@ -35,6 +35,22 @@ export function saveTrip(trip: Trip): Trip[] {
 
 export function deleteTrip(id: string): Trip[] {
   return write(loadTrips().filter((t) => t.id !== id))
+}
+
+/** The saved trip for exactly this request, if there is one. */
+export function findSaved(trips: Trip[], r: Partial<TripRequest>): Trip | undefined {
+  const norm = (s?: string) => s?.trim().toLowerCase() ?? ''
+  const spot = (p?: { lat: number; lon: number }) =>
+    p ? `${p.lat.toFixed(2)},${p.lon.toFixed(2)}` : ''
+  return trips.find(
+    (t) =>
+      norm(t.request.destinationQuery) === norm(r.destinationQuery) &&
+      t.request.startDate === r.startDate &&
+      t.request.endDate === r.endDate &&
+      t.request.travellers === r.travellers &&
+      t.request.transport === r.transport &&
+      (!r.near || spot(r.near) === spot(t.request.near ?? t.destination)),
+  )
 }
 
 /** Persist, making room by dropping the oldest trip if storage is full. */

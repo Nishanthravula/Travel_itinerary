@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LegacyItinerary, PlacePool, Trip } from '../types'
 import { getCachedPool, poolKey, putCachedPool } from './poolCache'
-import { deleteTrip, loadTrips, migrateLegacy, saveTrip } from './storage'
+import { deleteTrip, findSaved, loadTrips, migrateLegacy, saveTrip } from './storage'
 
 function memoryStorage(): Storage {
   const m = new Map<string, string>()
@@ -77,6 +77,23 @@ describe('saved trips', () => {
     }
     const after = saveTrip(trip('new'))
     expect(after.map((t) => t.id)).toEqual(['new', 'mid'])
+  })
+})
+
+describe('findSaved', () => {
+  const saved = [trip('a')]
+  const req = saved[0].request
+  it('finds the saved trip for the same request', () => {
+    expect(findSaved(saved, { ...req })?.id).toBe('a')
+  })
+  it('matches the destination text regardless of case', () => {
+    expect(findSaved(saved, { ...req, destinationQuery: ' kyoto ' })?.id).toBe('a')
+  })
+  it('does not match different dates, people, transport or place', () => {
+    expect(findSaved(saved, { ...req, endDate: '2026-08-03' })).toBeUndefined()
+    expect(findSaved(saved, { ...req, travellers: 5 })).toBeUndefined()
+    expect(findSaved(saved, { ...req, transport: 'car' })).toBeUndefined()
+    expect(findSaved(saved, { ...req, near: { lat: 1, lon: 1 } })).toBeUndefined()
   })
 })
 

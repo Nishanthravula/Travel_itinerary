@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { daysBetweenInclusive, type GeoPoint } from '../types'
+import { daysBetweenInclusive, localISODate, type GeoPoint } from '../types'
 import { TRANSPORT, hopBetween, hopMinutes } from './transport'
 
 // Two points 1 km apart along a meridian (1 km ≈ 0.008993° of latitude).
@@ -51,5 +51,12 @@ describe('daysBetweenInclusive', () => {
   })
   it('is not thrown off by a daylight-saving change', () => {
     expect(daysBetweenInclusive('2027-03-28', '2027-03-29')).toBe(2)
+  })
+})
+
+describe('localISODate', () => {
+  it('reads the calendar date where the traveller is, not in UTC', () => {
+    expect(localISODate(new Date(2026, 10, 12, 23, 30))).toBe('2026-11-12')
+    expect(localISODate(new Date(2026, 0, 1, 0, 5))).toBe('2026-01-01')
   })
 })

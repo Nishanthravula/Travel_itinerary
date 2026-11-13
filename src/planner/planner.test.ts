@@ -124,6 +124,37 @@ describe('buildTrip', () => {
   })
 })
 
+describe('buildTrip edge cases found in review', () => {
+  it('explains a trip that is all travel instead of blaming the map data', () => {
+    const req = request({ endDate: '2027-03-12', days: 1, flights: { arrivalTime: '20:00' } })
+    const trip = buildTrip(inputs({ request: req }))
+    expect(trip.options).toHaveLength(1)
+    expect(trip.options[0].days[0].stops).toEqual([])
+    expect(trip.notice).toMatch(/flight times leave no time/)
+    expect(trip.notice).not.toMatch(/mapped data/)
+  })
+
+  it('gives the same request the same id, so re-planning replaces the saved trip', () => {
+    const a = buildTrip(inputs())
+    const b = buildTrip(inputs())
+    expect(a.id).toBe(b.id)
+    expect(buildTrip(inputs({ request: request({ travellers: 4 }) })).id).not.toBe(a.id)
+    expect(buildTrip(inputs({ request: request({ transport: 'car' }) })).id).not.toBe(a.id)
+    expect(buildTrip(inputs({ request: request({ flights: { arrivalTime: '09:00' } }) })).id).not.toBe(a.id)
+  })
+
+  it('serves lunch and dinner on every full day of every option', () => {
+    for (const transport of ['walk', 'transit', 'car'] as const) {
+      for (const o of buildTrip(inputs({ request: request({ transport }) })).options) {
+        for (const d of o.days) {
+          const meals = d.stops.filter((s) => s.place.kind === 'restaurant')
+          expect(meals, `${o.style} ${transport} ${d.label}`).toHaveLength(2)
+        }
+      }
+    }
+  })
+})
+
 describe('buildOption', () => {
   it('summarises the plan for its card', () => {
     const o = buildOption(inputs(), STYLES.highlights, new Set())

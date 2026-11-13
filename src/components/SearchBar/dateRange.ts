@@ -1,4 +1,4 @@
-import { addDaysISO, daysBetweenInclusive } from '../../types'
+import { addDaysISO, daysBetweenInclusive, localISODate } from '../../types'
 import { MAX_DAYS } from '../../share'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -54,7 +54,4 @@ export function formatDay(isoDate: string): string {
 }
 
 /** Today's date in the traveller's own timezone. */
-export function todayISO(): string {
-  const n = new Date()
-  return iso(n.getFullYear(), n.getMonth() + 1, n.getDate())
-}
+export const todayISO = (): string => localISODate()

@@ -1,5 +1,5 @@
-import type { TransportMode, TripRequest } from './types'
-import { addDaysISO, daysBetweenInclusive } from './types'
+import type { Destination, GeoPoint, TransportMode, TripRequest } from './types'
+import { addDaysISO, daysBetweenInclusive, haversineKm } from './types'
 
 export const MAX_DAYS = 14
 export const MAX_TRAVELLERS = 12
@@ -10,13 +10,37 @@ const MODES: TransportMode[] = ['walk', 'transit', 'car']
 
 /** The parts of a request worth sharing — flight times stay private. */
 export function requestToParams(r: TripRequest): URLSearchParams {
-  return new URLSearchParams({
+  const params = new URLSearchParams({
     q: r.destinationQuery,
     from: r.startDate,
     to: r.endDate,
     n: String(r.travellers),
     by: r.transport,
   })
+  if (r.near) params.set('at', `${r.near.lat.toFixed(3)},${r.near.lon.toFixed(3)}`)
+  return params
+}
+
+/** A hint further than this from every match is ignored, km. */
+const NEAR_KM = 100
+
+/**
+ * Pick the place a request means from the geocoder's matches: the one
+ * nearest the request's position hint, otherwise the first (largest).
+ */
+export function chooseDestination(found: Destination[], near?: GeoPoint): Destination | undefined {
+  if (!near) return found[0]
+  const close = found
+    .map((d) => ({ d, km: haversineKm(d, near) }))
+    .filter((x) => x.km <= NEAR_KM)
+    .sort((a, b) => a.km - b.km)[0]
+  return close?.d ?? found[0]
+}
+
+function parseNear(raw: string | null): GeoPoint | undefined {
+  if (!raw || !/^-?\d+(\.\d+)?,-?\d+(\.\d+)?$/.test(raw)) return undefined
+  const [lat, lon] = raw.split(',').map(Number)
+  return Math.abs(lat) <= 90 && Math.abs(lon) <= 180 ? { lat, lon } : undefined
 }
 
 const isISODate = (s: string | null): s is string => {
@@ -42,12 +66,19 @@ export function paramsToRequest(
   if (q) request.destinationQuery = q
   else exact = false
 
-  const n = Number(p.get('n') ?? DEFAULT_TRAVELLERS)
-  request.travellers =
-    !Number.isInteger(n) || n < 1 ? DEFAULT_TRAVELLERS : Math.min(n, MAX_TRAVELLERS)
+  const near = parseNear(p.get('at'))
+  if (near) request.near = near
+
+  const rawN = p.get('n')
+  const n = Number(rawN ?? DEFAULT_TRAVELLERS)
+  const validN = Number.isInteger(n) && n >= 1 && n <= MAX_TRAVELLERS
+  request.travellers = validN ? n : Number.isInteger(n) && n > MAX_TRAVELLERS ? MAX_TRAVELLERS : DEFAULT_TRAVELLERS
+  if (!validN) exact = false
 
   const by = p.get('by') as TransportMode | null
-  request.transport = by && MODES.includes(by) ? by : DEFAULT_TRANSPORT
+  const validBy = by === null || MODES.includes(by)
+  request.transport = by && validBy ? by : DEFAULT_TRANSPORT
+  if (!validBy) exact = false
 
   const from = p.get('from')
   const to = p.get('to')
