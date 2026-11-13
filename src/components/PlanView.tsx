@@ -3,9 +3,13 @@ import type { Trip } from '../types'
 import { ArrowLeftIcon, MapIcon } from '../ui/icons'
 import CityOverview from './CityOverview'
 import DayTimeline from './DayTimeline'
+import GoogleMapEmbed from './GoogleMapEmbed'
 import StayList from './StayList'
 
 const MapView = lazy(() => import('./MapView'))
+
+/** Public key for Google's free embeddable map; set at build time. */
+const EMBED_KEY: string | undefined = import.meta.env.VITE_GOOGLE_MAPS_EMBED_KEY
 
 interface Props {
   trip: Trip
@@ -147,9 +151,23 @@ export default function PlanView({ trip, index, onSwitch, onBack }: Props) {
 
       {mapOpen && (
         <aside className="plan-map" aria-label="Map">
-          <Suspense fallback={<div className="map map-loading">Loading map…</div>}>
-            <MapView option={option} activeDay={activeTab} theme={theme} />
-          </Suspense>
+          {trip.source !== 'google' ? (
+            <Suspense fallback={<div className="map map-loading">Loading map…</div>}>
+              <MapView option={option} activeDay={activeTab} theme={theme} />
+            </Suspense>
+          ) : EMBED_KEY ? (
+            <GoogleMapEmbed
+              option={option}
+              activeDay={activeTab}
+              transport={trip.request.transport}
+              embedKey={EMBED_KEY}
+            />
+          ) : (
+            // Google's place data may only be mapped on a Google map.
+            <div className="map map-loading" data-testid="no-map">
+              <p>Each stop links to Google Maps. An embedded map appears once a map key is set.</p>
+            </div>
+          )}
         </aside>
       )}
     </div>

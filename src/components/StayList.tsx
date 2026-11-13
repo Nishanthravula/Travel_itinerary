@@ -1,7 +1,7 @@
 import type { PlanOption, StayType, Trip } from '../types'
-import { formatKm } from '../format'
+import { formatKm, formatRating } from '../format'
 import { citySearchUrl, roomsFor } from '../planner/stays'
-import { BedIcon, ExternalIcon } from '../ui/icons'
+import { BedIcon, ExternalIcon, StarIcon } from '../ui/icons'
 
 const TYPE: Record<StayType, string> = {
   hotel: 'Hotel',
@@ -66,16 +66,23 @@ export default function StayList({ trip, option }: Props) {
                     {s.parking ? ', parking' : ''}
                   </span>
                 </p>
-                {(s.price || s.rating) && (
-                  <p className="stop-note">
-                    {[s.price, s.rating ? `rated ${s.rating}` : null].filter(Boolean).join(', ')}
+                {s.rating !== undefined && (
+                  <p className="stop-rating" data-testid="rating">
+                    <StarIcon size={14} />
+                    {formatRating(s.rating, s.ratingCount)}
+                    {s.priceLevel ? `, ${s.priceLevel}` : ''}
                   </p>
                 )}
               </div>
               <div className="stay-actions">
-                {s.website && (
-                  <a className="button button-quiet" href={s.website} target="_blank" rel="noreferrer">
-                    Website
+                {(s.website ?? s.mapsUrl) && (
+                  <a
+                    className="button button-quiet"
+                    href={s.website ?? s.mapsUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {s.website ? 'Website' : 'Google Maps'}
                   </a>
                 )}
                 <a className="button" href={s.bookingUrl} target="_blank" rel="noreferrer">

@@ -194,3 +194,58 @@ test('still plans the trip, and says what is missing, when only restaurants fail
   await expect(page.getByText(/Restaurants and cafés could not be loaded/)).toBeVisible()
   await expect(page.getByTestId('error-card')).toHaveCount(0)
 })
+
+test('with Google configured: ratings, attribution, no open map, and nothing stored', async ({
+  page,
+  context,
+}) => {
+  const calls = await mockApis(context, { google: true })
+  await page.goto(`/?q=Lisbon&from=${inDays(3)}&to=${inDays(5)}&n=2&by=transit`)
+  await expect(page.getByTestId('option-card')).toHaveCount(3)
+  await expect(page.getByTestId('google-attribution')).toContainText('Google Maps')
+  expect(calls.overpass).toBe(0)
+
+  await page.getByTestId('option-card').first().getByRole('button', { name: /View plan/ }).click()
+  await expect(page.getByTestId('rating').first()).toContainText(/\d\.\d \([\d,]+ reviews\)/)
+  await expect(page.getByRole('link', { name: 'Open in Google Maps' }).first()).toBeVisible()
+  // Google's place data must not be drawn on a non-Google map.
+  await expect(page.getByTestId('map')).toHaveCount(0)
+
+  // Only the request is kept on the device; no place names are stored.
+  const stored = await page.evaluate(() => localStorage.getItem('wayfarer.trips.v2') ?? '')
+  expect(stored).toContain('"stub":true')
+  expect(stored).not.toContain('Belém Tower')
+  const cached = await page.evaluate(
+    () =>
+      new Promise<number>((resolve) => {
+        const open = indexedDB.open('wayfarer')
+        open.onsuccess = () => {
+          const db = open.result
+          if (!db.objectStoreNames.contains('pools')) return resolve(0)
+          const count = db.transaction('pools').objectStore('pools').count()
+          count.onsuccess = () => resolve(count.result)
+        }
+        open.onerror = () => resolve(-1)
+      }),
+  )
+  expect(cached).toBe(0)
+
+  // Opening the saved entry plans it again from Google.
+  await page.reload()
+  await expect(page.getByTestId('option-card')).toHaveCount(3)
+  expect(calls.google).toBe(2)
+})
+
+test('falls back to the free source when Google is configured but unavailable', async ({
+  page,
+  context,
+}) => {
+  const calls = await mockApis(context)
+  await context.route('**/.netlify/functions/places', (route) =>
+    route.fulfill({ status: 503, contentType: 'application/json', body: '{"error":"quota"}' }),
+  )
+  await page.goto(`/?q=Lisbon&from=${inDays(3)}&to=${inDays(4)}&n=2&by=walk`)
+  await expect(page.getByTestId('option-card').first()).toBeVisible()
+  await expect(page.getByTestId('google-attribution')).toHaveCount(0)
+  expect(calls.overpass).toBe(4)
+})

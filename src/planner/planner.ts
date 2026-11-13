@@ -74,6 +74,7 @@ export function buildTrip(inputs: PlannerInputs): Trip {
     options,
     parks: [...pool.nationalParks.slice(0, 6), ...pool.parks.slice(0, 3)],
     forecastPartial: lastDate > lastForecastable,
+    source: pool.source ?? 'osm',
     notice: noticeFor(options, destination.name, normalized, pool.missing ?? []),
   }
 }

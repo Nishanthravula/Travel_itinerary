@@ -1,6 +1,11 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import type { BrowserContext, Route } from '@playwright/test'
+import { parseOverpass } from '../src/api/overpass'
+
+const LISBON = {
+  name: 'Lisbon', lat: 38.7167, lon: -9.1333, country: 'Portugal', countryCode: 'PT', timezone: 'Europe/Lisbon',
+}
 
 const fixture = (name: string) =>
   readFileSync(fileURLToPath(new URL(`./fixtures/${name}.json`, import.meta.url)), 'utf8')
@@ -13,6 +18,8 @@ export interface MockOptions {
   placesDown?: boolean
   /** Only the restaurants-and-cafés query fails, on every mirror. */
   foodDown?: boolean
+  /** The site's Google places function is configured and answers. */
+  google?: boolean
   /** The geocoder finds nothing. */
   noSuchPlace?: boolean
 }
@@ -23,7 +30,7 @@ export interface MockOptions {
  * hit on every CI run.
  */
 export async function mockApis(context: BrowserContext, opts: MockOptions = {}) {
-  const calls = { overpass: 0, geocode: 0 }
+  const calls = { overpass: 0, geocode: 0, google: 0 }
 
   await context.route('https://geocoding-api.open-meteo.com/**', (route) => {
     calls.geocode++
@@ -65,6 +72,36 @@ export async function mockApis(context: BrowserContext, opts: MockOptions = {}) 
     return opts.placesDown
       ? route.fulfill({ status: 504, body: 'Gateway Timeout' })
       : json(route, fixture('overpass'))
+  })
+
+  // The site's own server function. Without a key it answers 501 and the
+  // app falls back to OpenStreetMap — the default in tests, as in dev.
+  await context.route('**/.netlify/functions/places', (route) => {
+    if (!opts.google) return json(route, '{"error":"not configured"}', 501)
+    calls.google++
+    const osm = parseOverpass(JSON.parse(fixture('overpass')).elements, LISBON)
+    const asGoogle = <T extends { id: string; name: string }>(list: T[]) =>
+      list.map((p, i) => ({
+        ...p,
+        placeId: `gid-${p.id.replace('/', '-')}`,
+        rating: 4.1 + (i % 8) / 10,
+        ratingCount: 1200 + i * 37,
+        mapsUrl: `https://maps.google.com/?cid=${i + 1}`,
+      }))
+    return json(
+      route,
+      JSON.stringify({
+        ...osm,
+        sights: asGoogle(osm.sights),
+        restaurants: asGoogle(osm.restaurants).map((r, i) => ({ ...r, priceLevel: i % 2 ? '$$' : '$' })),
+        cafes: asGoogle(osm.cafes),
+        markets: asGoogle(osm.markets),
+        parks: asGoogle(osm.parks),
+        stays: asGoogle(osm.stays),
+        missing: [],
+        source: 'google',
+      }),
+    )
   })
 
   await context.route('https://en.wikipedia.org/**', (route) => json(route, fixture('wiki')))

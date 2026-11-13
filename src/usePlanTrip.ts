@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Destination, Trip, TripRequest } from './types'
 import { searchDestinations } from './api/geocode'
 import { HttpError, isAbort } from './api/http'
+import { googleProvider } from './api/googleClient'
 import { overpassProvider } from './api/overpass'
 import { fetchCityInfo } from './api/cityInfo'
 import { fetchTripWeather } from './api/weather'
@@ -76,12 +77,24 @@ export function usePlanTrip() {
       })
       const key = poolKey(destination, request.transport)
       let fromCache = true
-      const [pool, weatherByDate, cityInfo] = await Promise.all([
-        getCachedPool(key).then((hit) => {
-          if (hit) return hit
+      // Google first when the site has it configured; otherwise, or if it
+      // is unavailable, the free OpenStreetMap source (cached for a week).
+      const loadPool = async () => {
+        try {
           fromCache = false
-          return overpassProvider.fetchPool(destination, request.transport, signal)
-        }),
+          return await googleProvider.fetchPool(destination, request.transport, signal)
+        } catch (err) {
+          if (isAbort(err)) throw err
+        }
+        const hit = await getCachedPool(key)
+        if (hit) {
+          fromCache = true
+          return hit
+        }
+        return overpassProvider.fetchPool(destination, request.transport, signal)
+      }
+      const [pool, weatherByDate, cityInfo] = await Promise.all([
+        loadPool(),
         fetchTripWeather(destination, request.startDate, request.days, signal),
         fetchCityInfo(destination, signal),
       ])
@@ -93,7 +106,7 @@ export function usePlanTrip() {
         )
       }
       // A hit must not renew its own expiry; an incomplete pool must not be kept.
-      if (!fromCache && !pool.missing?.length) void putCachedPool(key, pool)
+      if (!fromCache && !pool.missing?.length && pool.source !== 'google') void putCachedPool(key, pool)
 
       setState({ phase: 'loading', step: 'Building your plans' })
       const trip = buildTrip({ request, destination, pool, weatherByDate, cityInfo })
@@ -111,10 +124,12 @@ export function usePlanTrip() {
   }, [])
 
   const open = useCallback((trip: Trip) => {
+    // Saved as a request only (Google data is not stored): plan it again.
+    if (trip.stub) return void plan(trip.request)
     inFlight.current?.abort()
     showInUrl(trip.request)
     setState({ phase: 'ready', trip, alternatives: [] })
-  }, [])
+  }, [plan])
 
   const remove = useCallback((id: string) => {
     setTrips(deleteTrip(id))

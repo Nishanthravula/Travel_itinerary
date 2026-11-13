@@ -177,6 +177,12 @@ export default function App() {
               </p>
             )}
 
+            {trip.source === 'google' && (
+              <p className="google-attribution" translate="no" data-testid="google-attribution">
+                Places, ratings and prices from <span>Google Maps</span>
+              </p>
+            )}
+
             {optionIndex === null ? (
               <OptionCards trip={trip} onOpen={setOptionIndex} />
             ) : (

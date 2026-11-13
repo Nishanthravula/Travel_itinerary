@@ -906,6 +906,38 @@ main {
   padding-top: var(--s-5);
 }
 
+.stop-rating {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  color: var(--ink-2);
+  font-size: var(--t-sm);
+  font-variant-numeric: tabular-nums;
+}
+.stop-rating svg {
+  flex: none;
+  color: #c98a00;
+}
+
+/* Google requires its content to be attributed, in its own name styling. */
+.google-attribution {
+  margin-bottom: var(--s-4);
+  color: var(--ink-3);
+  font-size: var(--t-sm);
+}
+.google-attribution span {
+  font-family: Roboto, Arial, sans-serif;
+  font-weight: 500;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.map-google {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--line);
+}
+
 /* ---------- stays ---------- */
 
 .stay-list {
