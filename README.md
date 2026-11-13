@@ -81,8 +81,9 @@ src/
 └── share.ts     request ⇄ URL
 ```
 
-Reliability: every request has a timeout and retries; the places lookup
-falls back across mirrors; a fetched city is cached for a week so re-planning
+Reliability: every request has a timeout and retries; places are fetched as
+four small queries (sights, food, stays, parks) spread across mirrors, and a
+plan still builds — with a note — if food, stays or parks cannot be loaded; a fetched city is cached for a week so re-planning
 does not hit the shared service again; weather and city facts are optional
 and never fail a plan.
 

@@ -11,6 +11,8 @@ const json = (route: Route, body: string, status = 200) =>
 export interface MockOptions {
   /** Every Overpass mirror answers 504. */
   placesDown?: boolean
+  /** Only the restaurants-and-cafés query fails, on every mirror. */
+  foodDown?: boolean
   /** The geocoder finds nothing. */
   noSuchPlace?: boolean
 }
@@ -56,6 +58,10 @@ export async function mockApis(context: BrowserContext, opts: MockOptions = {}) 
 
   await context.route(/overpass/, (route) => {
     calls.overpass++
+    const query = decodeURIComponent(route.request().postData() ?? '')
+    if (opts.foodDown && query.includes('"amenity"="restaurant"')) {
+      return route.fulfill({ status: 504, body: 'Gateway Timeout' })
+    }
     return opts.placesDown
       ? route.fulfill({ status: 504, body: 'Gateway Timeout' })
       : json(route, fixture('overpass'))

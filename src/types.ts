@@ -109,6 +109,8 @@ export interface PlacePool {
   parks: Place[]
   nationalParks: Place[]
   stays: Stay[]
+  /** Parts that could not be loaded this time; such a pool is not cached. */
+  missing?: Array<'sights' | 'food' | 'stays' | 'parks'>
 }
 
 export interface ItineraryStop {

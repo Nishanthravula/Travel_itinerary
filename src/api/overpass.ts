@@ -9,7 +9,7 @@ import type {
 } from '../types'
 import { haversineKm } from '../types'
 import { TRANSPORT } from '../planner/transport'
-import { HttpError, fetchJson } from './http'
+import { HttpError, fetchJson, isAbort } from './http'
 import type { PlacesProvider } from './providers'
 
 /** Public Overpass instances, tried in order. All are shared, free services. */
@@ -19,11 +19,15 @@ export const OVERPASS_MIRRORS = [
   'https://overpass.private.coffee/api/interpreter',
 ]
 
-/** Food and stays are only useful near where the days are spent, km. */
-const FOOD_RADIUS_KM = 10
+/** Food is only useful near where the days are spent, km. */
+const FOOD_RADIUS_KM = 8
 const STAY_RADIUS_KM = 12
+/** Lesser-known sights and city parks are only looked for this close, km. */
+const LOCAL_RADIUS_KM = 12
 /** National/state parks and nature reserves are listed from this far, km. */
-const PARKS_RADIUS_KM = 80
+const PARKS_RADIUS_KM = 60
+/** Server-side limit per query, seconds. The client waits a little longer. */
+const QUERY_TIMEOUT_S = 25
 
 export interface OverpassElement {
   type: 'node' | 'way' | 'relation'
@@ -40,47 +44,66 @@ const SIGHT_HISTORIC =
 const STAY_TOURISM = /^(hotel|guest_house|hostel|apartment)$/
 const INDOOR_KINDS = new Set<PlaceKind>(['museum'])
 
-export function buildQuery(dest: Destination, mode: TransportMode): string {
+export type PoolPart = 'sights' | 'food' | 'stays' | 'parks'
+
+/**
+ * One small query per kind of place. A single combined query is too heavy
+ * for a shared public server in a dense city (New York by car timed out);
+ * separate queries finish quickly, run side by side on different mirrors,
+ * and let a plan go ahead when a non-essential part fails.
+ */
+export function buildQueries(dest: Destination, mode: TransportMode): Record<PoolPart, string> {
   const at = (km: number) => `(around:${Math.round(km * 1000)},${dest.lat},${dest.lon})`
   const radius = TRANSPORT[mode].radiusKm
-  const sights = at(radius)
+  const reach = at(radius)
+  const local = at(Math.min(radius, LOCAL_RADIUS_KM))
   const food = at(Math.min(radius, FOOD_RADIUS_KM))
   const stays = at(Math.min(radius, STAY_RADIUS_KM))
   const wide = at(PARKS_RADIUS_KM)
-  // Well-known sights (those with a Wikidata entry) are fetched first and in
-  // full, so a busy city's landmarks are never crowded out by the size cap.
-  return `
-[out:json][timeout:40];
+  const head = `[out:json][timeout:${QUERY_TIMEOUT_S}];`
+
+  return {
+    // Well-known sights (those with a Wikidata entry) come first and in
+    // full, so a busy city's landmarks are never crowded out by the cap.
+    sights: `${head}
 (
-  nwr["tourism"~"${SIGHT_TOURISM.source}"]["name"]["wikidata"]${sights};
-  nwr["historic"~"${SIGHT_HISTORIC.source}"]["name"]["wikidata"]${sights};
+  nwr["tourism"~"${SIGHT_TOURISM.source}"]["name"]["wikidata"]${reach};
+  nwr["historic"~"${SIGHT_HISTORIC.source}"]["name"]["wikidata"]${reach};
 );
 out center 400;
 (
-  nwr["tourism"~"^(attraction|museum|gallery|viewpoint|zoo|aquarium|theme_park)$"]["name"][!"wikidata"]${sights};
-  nwr["historic"~"${SIGHT_HISTORIC.source}"]["name"][!"wikidata"]${sights};
+  nwr["tourism"~"^(attraction|museum|gallery|viewpoint|zoo|aquarium|theme_park)$"]["name"][!"wikidata"]${local};
+  nwr["historic"~"${SIGHT_HISTORIC.source}"]["name"][!"wikidata"]${local};
 );
-out center 150;
-nwr["amenity"="restaurant"]["name"]["cuisine"]${food};
-out center 400;
-nwr["amenity"="cafe"]["name"]${food};
-out center 120;
+out center 150;`,
+
+    // Points only: nearly every restaurant, café and bar is mapped as one,
+    // and skipping building outlines keeps this fast in dense cities.
+    food: `${head}
+node["amenity"="restaurant"]["name"]["cuisine"]${food};
+out 400;
+node["amenity"="cafe"]["name"]${food};
+out 120;
 (
-  nwr["amenity"="marketplace"]["name"]${food};
-  nwr["amenity"~"^(bar|pub)$"]["name"]${food};
-  nwr["shop"="bakery"]["name"]${food};
+  node["amenity"="marketplace"]["name"]${food};
+  node["amenity"~"^(bar|pub)$"]["name"]${food};
+  node["shop"="bakery"]["name"]${food};
 );
-out center 120;
+out 120;`,
+
+    stays: `${head}
 nwr["tourism"~"${STAY_TOURISM.source}"]["name"]${stays};
-out center 250;
+out center 250;`,
+
+    parks: `${head}
 (
-  nwr["leisure"~"^(park|garden)$"]["name"]${sights};
-  nwr["boundary"="national_park"]["name"]${wide};
-  nwr["leisure"="nature_reserve"]["name"]${wide};
-  nwr["boundary"="protected_area"]["protect_class"~"^(2|5)$"]["name"]${wide};
+  nwr["leisure"~"^(park|garden)$"]["name"]["wikidata"]${local};
+  nwr["boundary"="national_park"]["name"]["wikidata"]${wide};
+  nwr["leisure"="nature_reserve"]["name"]["wikidata"]${wide};
+  nwr["boundary"="protected_area"]["protect_class"~"^(2|5)$"]["name"]["wikidata"]${wide};
 );
-out center 120;
-`
+out center 120;`,
+  }
 }
 
 function classify(tags: Record<string, string>): PlaceKind | null {
@@ -231,26 +254,74 @@ export function parseOverpass(elements: OverpassElement[], dest: Destination): P
   }
 }
 
-/** Places and stays from OpenStreetMap via Overpass (free, keyless). */
+const PARTS: PoolPart[] = ['sights', 'food', 'stays', 'parks']
+
+async function fetchPart(
+  query: string,
+  startAt: number,
+  dest: Destination,
+  signal?: AbortSignal,
+): Promise<PlacePool> {
+  // Each part starts on a different mirror, so they don't queue on one.
+  const mirrors = OVERPASS_MIRRORS.map(
+    (_, i) => OVERPASS_MIRRORS[(startAt + i) % OVERPASS_MIRRORS.length],
+  )
+  const data = await fetchJson<{ elements?: OverpassElement[]; remark?: string }>(mirrors, {
+    init: {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `data=${encodeURIComponent(query)}`,
+    },
+    timeoutMs: (QUERY_TIMEOUT_S + 5) * 1000,
+    retries: OVERPASS_MIRRORS.length - 1,
+    signal,
+    // Overpass reports its own timeout as a 200 with partial results.
+    // A partial answer must not be planned from, or cached.
+    validate: (d) => {
+      if (d.remark && /timed out|runtime error|out of memory/i.test(d.remark)) {
+        throw new HttpError('timeout', 'The places service ran out of time')
+      }
+    },
+  })
+  return parseOverpass(data.elements ?? [], dest)
+}
+
+const EMPTY: PlacePool = {
+  sights: [], restaurants: [], cafes: [], markets: [], parks: [], nationalParks: [], stays: [],
+}
+
+/**
+ * Places and stays from OpenStreetMap via Overpass (free, keyless).
+ * Sights are essential — without them there is no plan. Food, stays and
+ * parks are best-effort: if one cannot be loaded the pool says so in
+ * `missing` and the plan is built without it.
+ */
 export const overpassProvider: PlacesProvider = {
   async fetchPool(dest, mode, signal) {
-    const data = await fetchJson<{ elements?: OverpassElement[]; remark?: string }>(OVERPASS_MIRRORS, {
-      init: {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `data=${encodeURIComponent(buildQuery(dest, mode))}`,
-      },
-      timeoutMs: 50_000,
-      retries: OVERPASS_MIRRORS.length - 1,
-      signal,
-      // Overpass reports its own timeout as a 200 with partial results.
-      // A partial city must not be planned from, or cached.
-      validate: (d) => {
-        if (d.remark && /timed out|runtime error|out of memory/i.test(d.remark)) {
-          throw new HttpError('timeout', 'The places service ran out of time')
-        }
-      },
-    })
-    return parseOverpass(data.elements ?? [], dest)
+    const queries = buildQueries(dest, mode)
+    const results = await Promise.allSettled(
+      PARTS.map((part, i) => fetchPart(queries[part], i, dest, signal)),
+    )
+    const get = (part: PoolPart) => results[PARTS.indexOf(part)]
+
+    const sights = get('sights')
+    if (sights.status === 'rejected') throw sights.reason
+    const aborted = results.find((r) => r.status === 'rejected' && isAbort(r.reason))
+    if (aborted) throw (aborted as PromiseRejectedResult).reason
+
+    const value = (part: PoolPart) => {
+      const r = get(part)
+      return r.status === 'fulfilled' ? r.value : EMPTY
+    }
+    return {
+      sights: sights.value.sights,
+      restaurants: value('food').restaurants,
+      cafes: value('food').cafes,
+      markets: value('food').markets,
+      stays: value('stays').stays,
+      parks: value('parks').parks,
+      nationalParks: value('parks').nationalParks,
+      missing: PARTS.filter((part) => get(part).status === 'rejected'),
+    }
   },
 }
