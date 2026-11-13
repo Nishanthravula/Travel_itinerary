@@ -53,7 +53,8 @@ plan spends its days.
 
 ## How it is built
 
-A client-only React + TypeScript + Vite PWA. **No backend, no API keys.**
+A React + TypeScript + Vite PWA. It runs entirely in the browser on free,
+keyless data; one optional server function adds Google Places.
 
 | Concern | Source |
 |---|---|
@@ -63,6 +64,7 @@ A client-only React + TypeScript + Vite PWA. **No backend, no API keys.**
 | City summary | Wikipedia REST |
 | Currency, languages, driving side | REST Countries |
 | Map | MapLibre GL + OpenFreeMap vector tiles |
+| Optional: places with ratings | Google Places API (New) via `netlify/functions/places.mts` |
 
 ```
 src/
@@ -109,6 +111,43 @@ cache headers. GitHub Actions (`.github/workflows/ci.yml`) runs lint,
 typecheck, unit tests, build and the smoke tests on every push and pull
 request.
 
+## Using Google for places (optional)
+
+With a Google key set, places come from Google Places instead of
+OpenStreetMap: faster and more reliable in big cities, with ratings, review
+counts and price levels. Without a key — or if Google is unavailable or over
+quota — the app uses OpenStreetMap exactly as before.
+
+**Set up**
+
+1. In Google Cloud, create a project with billing enabled and turn on
+   **Places API (New)** and **Maps Embed API**.
+2. Create two API keys:
+   - a **server key**, restricted to *Places API (New)*. In Netlify add it as
+     the environment variable `GOOGLE_PLACES_API_KEY` (scope: Functions).
+   - a **map key**, restricted to *Maps Embed API* and to your site's
+     address as HTTP referrer. Add it as `VITE_GOOGLE_MAPS_EMBED_KEY`
+     (scope: Builds). This one is visible in the page by design.
+3. Redeploy.
+
+**Staying within the free allowance.** One plan makes 9 searches, all in
+Google's "Enterprise" tier, which has a monthly free allowance per search
+type (1,000 calls at the time of writing — roughly 110 plans; check Google's
+pricing page). To make sure you are never billed, set a quota on Places API
+(New) in the Google Cloud console — for example 30 `SearchNearbyRequest` per
+day. When the quota is used up the app falls back to OpenStreetMap. The
+embedded map is free and unlimited.
+
+**What changes with Google data** (Google's terms, as we read them)
+
+- The map is Google's embeddable map, showing the day as a route.
+- Place data is not stored: a Google-built trip is saved as its request
+  only, and opening it (or a share link) plans it again — 9 more searches.
+  It is not available offline.
+- A "Google Maps" attribution is shown with the results.
+- Google asks sites using Places to publish terms of use and a privacy
+  policy that reference Google's. Add those before promoting the site.
+
 ## Limits of the free data, and the upgrade path
 
 - **Overpass is a shared public service.** It can be slow or rate-limited
@@ -117,11 +156,8 @@ request.
   hosted or self-hosted instance.
 - **OpenFreeMap** is free and donation-funded. The dark theme reuses the
   light map style, inverted.
-- **Live prices, photos and ratings** need a paid provider and a small
-  backend to keep its key secret. Implement `PlacesProvider`
-  (`src/api/providers.ts`) and fill the optional `price`, `rating` and
-  `photoUrl` fields on `Stay`; the stay list already shows them when
-  present.
+- **Live hotel prices and photos** are still not included; Google's data
+  adds ratings and price levels, not room rates.
 
 ## License
 

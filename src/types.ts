@@ -35,6 +35,14 @@ export interface Place extends GeoPoint {
   openingHours?: string
   website?: string
   wikipedia?: string
+  /** Filled only by a provider that has them (Google). */
+  rating?: number
+  ratingCount?: number
+  /** "$" to "$$$$". */
+  priceLevel?: string
+  /** Link to the place on the provider's own map. */
+  mapsUrl?: string
+  placeId?: string
   distanceKm: number
 }
 
@@ -56,6 +64,7 @@ export interface FlightDetails {
   departureFlight?: string
 }
 
+export type PlaceSource = 'osm' | 'google'
 export type TransportMode = 'walk' | 'transit' | 'car'
 export type StyleId = 'highlights' | 'food' | 'easy'
 export type StayType = 'hotel' | 'guest_house' | 'hostel' | 'apartment'
@@ -92,6 +101,10 @@ export interface Stay extends GeoPoint {
   score: number
   price?: string
   rating?: number
+  ratingCount?: number
+  priceLevel?: string
+  mapsUrl?: string
+  placeId?: string
   photoUrl?: string
 }
 
@@ -111,6 +124,8 @@ export interface PlacePool {
   stays: Stay[]
   /** Parts that could not be loaded this time; such a pool is not cached. */
   missing?: Array<'sights' | 'food' | 'stays' | 'parks'>
+  /** Where the places came from. Google content has display and storage rules. */
+  source?: PlaceSource
 }
 
 export interface ItineraryStop {
@@ -180,6 +195,9 @@ export interface Trip {
   forecastPartial: boolean
   /** Shown above the options, e.g. when fewer than three could be built. */
   notice?: string
+  source?: PlaceSource
+  /** Saved as a request only (no place data); opening it plans again. */
+  stub?: boolean
 }
 
 /** Single-plan trip saved by v1 of the app; kept for migration only. */

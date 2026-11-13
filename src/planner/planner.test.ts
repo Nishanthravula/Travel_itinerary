@@ -144,6 +144,10 @@ describe('buildTrip edge cases found in review', () => {
     const trip = buildTrip(inputs({ pool: { ...richPool(), missing: ['stays' as const] } }))
     expect(trip.notice).toMatch(/Places to stay could not be loaded/)
   })
+  it('passes on where the places came from', () => {
+    expect(buildTrip(inputs({ pool: { ...richPool(), source: 'google' } })).source).toBe('google')
+    expect(buildTrip(inputs()).source).toBe('osm')
+  })
   it('adds no notice for a complete pool', () => {
     expect(buildTrip(inputs({ pool: { ...richPool(), missing: [] } })).notice).toBeUndefined()
   })

@@ -29,12 +29,22 @@ export function loadTrips(): Trip[] {
 }
 
 export function saveTrip(trip: Trip): Trip[] {
-  const trips = [trip, ...loadTrips().filter((t) => t.id !== trip.id)].slice(0, MAX_TRIPS)
+  const trips = [toStorable(trip), ...loadTrips().filter((t) => t.id !== trip.id)].slice(0, MAX_TRIPS)
   return write(trips)
 }
 
 export function deleteTrip(id: string): Trip[] {
   return write(loadTrips().filter((t) => t.id !== id))
+}
+
+/**
+ * What may be kept on the device. Google's terms do not allow storing its
+ * place data, so a trip built from it is saved as its request only — it
+ * still appears under Saved, and opening it plans the trip again.
+ */
+export function toStorable(trip: Trip): Trip {
+  if (trip.source !== 'google') return trip
+  return { ...trip, options: [], parks: [], notice: undefined, stub: true }
 }
 
 /** The saved trip for exactly this request, if there is one. */

@@ -1,10 +1,10 @@
 import type { ComponentType } from 'react'
 import type { ItineraryDay, PlaceKind, TransportMode } from '../types'
 import { minutesToHHMM } from '../types'
-import { formatDuration } from '../format'
+import { formatDuration, formatRating } from '../format'
 import { TRANSPORT } from '../planner/transport'
 import {
-  CoffeeIcon, MarketIcon, MealIcon, MuseumIcon, SightIcon, TreeIcon, ViewIcon,
+  CoffeeIcon, MarketIcon, MealIcon, MuseumIcon, SightIcon, StarIcon, TreeIcon, ViewIcon,
 } from '../ui/icons'
 import { formatDay } from './SearchBar/dateRange'
 import WeatherBadge from './WeatherBadge'
@@ -67,8 +67,8 @@ export default function DayTimeline({ day, transport }: Props) {
                   </span>
                   <div className="stop-body">
                     <h4 className="stop-name">
-                      {stop.place.website ? (
-                        <a href={stop.place.website} target="_blank" rel="noreferrer">
+                      {(stop.place.website ?? stop.place.mapsUrl) ? (
+                        <a href={stop.place.website ?? stop.place.mapsUrl} target="_blank" rel="noreferrer">
                           {stop.place.name}
                         </a>
                       ) : (
@@ -83,6 +83,21 @@ export default function DayTimeline({ day, transport }: Props) {
                         {formatDuration(Math.round(stop.durationMin / 5) * 5)}
                       </span>
                     </p>
+                    {stop.place.rating !== undefined && (
+                      <p className="stop-rating" data-testid="rating">
+                        <StarIcon size={14} />
+                        {formatRating(stop.place.rating, stop.place.ratingCount)}
+                        {stop.place.priceLevel ? `, ${stop.place.priceLevel}` : ''}
+                        {stop.place.mapsUrl && (
+                          <>
+                            {' '}
+                            <a href={stop.place.mapsUrl} target="_blank" rel="noreferrer">
+                              Open in Google Maps
+                            </a>
+                          </>
+                        )}
+                      </p>
+                    )}
                     {stop.note && <p className="stop-note">{stop.note}</p>}
                     {stop.place.openingHours && (
                       <p className="stop-hours">Listed hours: {stop.place.openingHours}</p>

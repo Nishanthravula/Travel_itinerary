@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LegacyItinerary, PlacePool, Trip } from '../types'
 import { getCachedPool, poolKey, putCachedPool } from './poolCache'
-import { deleteTrip, findSaved, loadTrips, migrateLegacy, saveTrip } from './storage'
+import { deleteTrip, findSaved, loadTrips, migrateLegacy, saveTrip, toStorable } from './storage'
 
 function memoryStorage(): Storage {
   const m = new Map<string, string>()
@@ -77,6 +77,23 @@ describe('saved trips', () => {
     }
     const after = saveTrip(trip('new'))
     expect(after.map((t) => t.id)).toEqual(['new', 'mid'])
+  })
+})
+
+describe('toStorable', () => {
+  it('keeps a trip built from open data whole', () => {
+    const t = trip('osm')
+    expect(toStorable(t)).toEqual(t)
+  })
+  it('keeps only the request for a trip built from Google data', () => {
+    const t = { ...trip('g'), source: 'google' as const }
+    const kept = toStorable(t)
+    expect(kept.stub).toBe(true)
+    expect(kept.options).toEqual([])
+    expect(kept.parks).toEqual([])
+    expect(kept.request).toEqual(t.request)
+    expect(kept.destination.name).toBe('Kyoto')
+    expect(JSON.stringify(kept)).not.toContain('Kinkaku-ji')
   })
 })
 
