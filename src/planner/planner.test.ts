@@ -134,6 +134,20 @@ describe('buildTrip edge cases found in review', () => {
     expect(trip.notice).not.toMatch(/mapped data/)
   })
 
+  it('says so when restaurants could not be loaded, rather than silently skipping meals', () => {
+    const pool = { ...richPool(), restaurants: [], cafes: [], markets: [], missing: ['food' as const] }
+    const trip = buildTrip(inputs({ pool }))
+    expect(trip.notice).toMatch(/Restaurants and cafés could not be loaded/)
+    expect(trip.options.length).toBeGreaterThanOrEqual(1)
+  })
+  it('says so when places to stay could not be loaded', () => {
+    const trip = buildTrip(inputs({ pool: { ...richPool(), missing: ['stays' as const] } }))
+    expect(trip.notice).toMatch(/Places to stay could not be loaded/)
+  })
+  it('adds no notice for a complete pool', () => {
+    expect(buildTrip(inputs({ pool: { ...richPool(), missing: [] } })).notice).toBeUndefined()
+  })
+
   it('gives the same request the same id, so re-planning replaces the saved trip', () => {
     const a = buildTrip(inputs())
     const b = buildTrip(inputs())

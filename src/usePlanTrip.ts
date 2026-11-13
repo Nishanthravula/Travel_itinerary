@@ -92,7 +92,8 @@ export function usePlanTrip() {
           `There isn't enough mapped data around ${destination.name} to build a plan. Try the nearest larger town.`,
         )
       }
-      if (!fromCache) void putCachedPool(key, pool) // a hit must not renew its own expiry
+      // A hit must not renew its own expiry; an incomplete pool must not be kept.
+      if (!fromCache && !pool.missing?.length) void putCachedPool(key, pool)
 
       setState({ phase: 'loading', step: 'Building your plans' })
       const trip = buildTrip({ request, destination, pool, weatherByDate, cityInfo })

@@ -74,7 +74,7 @@ export function buildTrip(inputs: PlannerInputs): Trip {
     options,
     parks: [...pool.nationalParks.slice(0, 6), ...pool.parks.slice(0, 3)],
     forecastPartial: lastDate > lastForecastable,
-    notice: noticeFor(options, destination.name, normalized),
+    notice: noticeFor(options, destination.name, normalized, pool.missing ?? []),
   }
 }
 
@@ -96,13 +96,31 @@ export function tripId(destination: Destination, r: TripRequest): string {
   ].join('|')
 }
 
-function noticeFor(options: PlanOption[], city: string, r: TripRequest): string | undefined {
-  if (options.length >= STYLE_ORDER.length) return undefined
-  const hasFlights = Boolean(r.flights.arrivalTime || r.flights.departureTime)
-  if (hasFlights && options[0]?.summary.sightCount === 0) {
-    return 'Your flight times leave no time for sightseeing on this trip, so there is a single plan.'
+function noticeFor(
+  options: PlanOption[],
+  city: string,
+  r: TripRequest,
+  missing: NonNullable<PlacePool['missing']>,
+): string | undefined {
+  const parts: string[] = []
+
+  if (options.length < STYLE_ORDER.length) {
+    const hasFlights = Boolean(r.flights.arrivalTime || r.flights.departureTime)
+    parts.push(
+      hasFlights && options[0]?.summary.sightCount === 0
+        ? 'Your flight times leave no time for sightseeing on this trip, so there is a single plan.'
+        : `Only ${options.length} distinct plan${options.length === 1 ? '' : 's'} — there isn't enough mapped data around ${city} for more.`,
+    )
   }
-  return `Only ${options.length} distinct plan${options.length === 1 ? '' : 's'} — there isn't enough mapped data around ${city} for more.`
+
+  // The places service is shared and sometimes drops part of an answer.
+  const lost: string[] = []
+  if (missing.includes('food')) lost.push('Restaurants and cafés could not be loaded, so there are no meal stops.')
+  if (missing.includes('stays')) lost.push('Places to stay could not be loaded.')
+  if (missing.includes('parks')) lost.push('Parks could not be loaded.')
+  if (lost.length > 0) parts.push(`${lost.join(' ')} Plan again in a few minutes to fill them in.`)
+
+  return parts.length > 0 ? parts.join(' ') : undefined
 }
 
 /**

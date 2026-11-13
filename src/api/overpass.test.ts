@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Destination } from '../types'
-import { OVERPASS_MIRRORS, buildQuery, overpassProvider, parseOverpass, safeUrl, type OverpassElement } from './overpass'
+import { OVERPASS_MIRRORS, buildQueries, overpassProvider, parseOverpass, safeUrl, type OverpassElement } from './overpass'
 import { searchDestinations } from './geocode'
 
 const dest: Destination = {
@@ -127,53 +127,119 @@ describe('safeUrl', () => {
   })
 })
 
-describe('buildQuery', () => {
-  it('searches as far as the transport mode reaches', () => {
-    expect(buildQuery(dest, 'walk')).toContain('around:5000,35.01,135.77')
-    expect(buildQuery(dest, 'car')).toContain('around:30000,35.01,135.77')
+describe('buildQueries', () => {
+  it('searches for sights as far as the transport mode reaches', () => {
+    expect(buildQueries(dest, 'walk').sights).toContain('around:5000,35.01,135.77')
+    expect(buildQueries(dest, 'car').sights).toContain('around:30000,35.01,135.77')
   })
-  it('asks for places to stay', () => {
-    expect(buildQuery(dest, 'transit')).toMatch(/tourism.*hotel\|guest_house\|hostel\|apartment/)
+  it('keeps the food search small: points only, close to the centre', () => {
+    const { food } = buildQueries(dest, 'car')
+    expect(food).toContain('around:8000,')
+    expect(food).not.toMatch(/\bnwr\b/)
+    expect(food).toContain('node["amenity"="restaurant"]')
+  })
+  it('asks for places to stay within 12 km', () => {
+    const { stays } = buildQueries(dest, 'car')
+    expect(stays).toMatch(/tourism.*hotel\|guest_house\|hostel\|apartment/)
+    expect(stays).toContain('around:12000,')
+  })
+  it('only asks for parks that are notable enough to have a Wikidata entry', () => {
+    const { parks } = buildQueries(dest, 'car')
+    for (const line of parks.split('\n').filter((l) => /leisure|boundary/.test(l))) {
+      expect(line).toContain('["wikidata"]')
+    }
+  })
+  it('gives every part its own short server-side time limit', () => {
+    for (const q of Object.values(buildQueries(dest, 'car'))) expect(q).toContain('[timeout:25]')
   })
 })
 
 describe('overpassProvider', () => {
-  it('falls back to the next mirror with the same query', async () => {
-    vi.useFakeTimers()
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(new Response('Gateway Timeout', { status: 504 }))
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ elements: [node({ tourism: 'museum', name: 'M' })] }), { status: 200 }),
-      )
-    vi.stubGlobal('fetch', fetchMock)
-    const p = overpassProvider.fetchPool(dest, 'transit')
-    await vi.advanceTimersByTimeAsync(60_000)
-    const pool = await p
-    expect(pool.sights).toHaveLength(1)
-    expect(String(fetchMock.mock.calls[0][0])).toBe(OVERPASS_MIRRORS[0])
-    expect(String(fetchMock.mock.calls[1][0])).toBe(OVERPASS_MIRRORS[1])
-    expect(fetchMock.mock.calls[1][1].body).toBe(fetchMock.mock.calls[0][1].body)
-  })
-})
+  type Part = 'sights' | 'food' | 'stays' | 'parks'
+  const partOf = (init: RequestInit): Part => {
+    const q = decodeURIComponent(String(init.body))
+    if (q.includes('"amenity"="restaurant"')) return 'food'
+    if (q.includes('guest_house')) return 'stays'
+    if (q.includes('national_park')) return 'parks'
+    return 'sights'
+  }
+  const answers: Record<Part, OverpassElement[]> = {
+    sights: [node({ tourism: 'museum', name: 'M' })],
+    food: [node({ amenity: 'restaurant', name: 'R', cuisine: 'japanese' }), node({ amenity: 'cafe', name: 'C' })],
+    stays: [node({ tourism: 'hotel', name: 'H' })],
+    parks: [node({ leisure: 'park', name: 'P', wikidata: 'Q1' })],
+  }
+  const ok = (part: Part) => new Response(JSON.stringify({ elements: answers[part] }), { status: 200 })
+  const down = () => new Response('Gateway Timeout', { status: 504 })
 
-describe('overpassProvider with a server-side timeout', () => {
-  it('does not accept a partial answer that Overpass marks as timed out', async () => {
+  /** Run a fetchPool call to completion under fake timers. */
+  async function run(respond: (part: Part, url: string, nth: number) => Response) {
     vi.useFakeTimers()
-    const partial = () =>
-      new Response(
-        JSON.stringify({ elements: [node({ tourism: 'museum', name: 'M' })], remark: 'runtime error: Query timed out in "query" at line 3 after 41 seconds.' }),
-        { status: 200 },
-      )
-    const fetchMock = vi.fn(async () => partial())
-    vi.stubGlobal('fetch', fetchMock)
-    const p = overpassProvider.fetchPool(dest, 'transit').then(
-      () => 'resolved',
-      (e: unknown) => e,
+    const seen: Record<Part, string[]> = { sights: [], food: [], stays: [], parks: [] }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: unknown, init: RequestInit) => {
+        const part = partOf(init)
+        seen[part].push(String(url))
+        return respond(part, String(url), seen[part].length)
+      }),
     )
-    await vi.advanceTimersByTimeAsync(300_000)
-    expect(await p).toMatchObject({ name: 'HttpError' })
-    expect(fetchMock).toHaveBeenCalledTimes(OVERPASS_MIRRORS.length)
+    const settled = overpassProvider.fetchPool(dest, 'car').then(
+      (pool) => ({ pool, error: undefined }),
+      (error: unknown) => ({ pool: undefined, error }),
+    )
+    await vi.advanceTimersByTimeAsync(600_000)
+    return { ...(await settled), seen }
+  }
+
+  it('asks for sights, food, stays and parks separately and merges the answers', async () => {
+    const { pool, seen } = await run((part) => ok(part))
+    expect(Object.values(seen).map((u) => u.length)).toEqual([1, 1, 1, 1])
+    expect(pool).toMatchObject({ missing: [] })
+    expect(pool!.sights.map((p) => p.name)).toEqual(['M'])
+    expect(pool!.restaurants.map((p) => p.name)).toEqual(['R'])
+    expect(pool!.cafes.map((p) => p.name)).toEqual(['C'])
+    expect(pool!.stays.map((p) => p.name)).toEqual(['H'])
+    expect(pool!.parks.map((p) => p.name)).toEqual(['P'])
+  })
+
+  it('spreads the parts across mirrors instead of queueing on one server', async () => {
+    const { seen } = await run((part) => ok(part))
+    const firstHosts = new Set(Object.values(seen).map((u) => u[0]))
+    expect(firstHosts.size).toBe(OVERPASS_MIRRORS.length)
+  })
+
+  it('retries a failed part on the next mirror', async () => {
+    const { pool, seen } = await run((part, _url, nth) => (part === 'sights' && nth === 1 ? down() : ok(part)))
+    expect(pool!.sights).toHaveLength(1)
+    expect(seen.sights).toHaveLength(2)
+    expect(seen.sights[1]).not.toBe(seen.sights[0])
+  })
+
+  it('still returns a pool, marked incomplete, when food cannot be loaded', async () => {
+    const { pool, seen } = await run((part) => (part === 'food' ? down() : ok(part)))
+    expect(seen.food).toHaveLength(OVERPASS_MIRRORS.length)
+    expect(pool!.sights).toHaveLength(1)
+    expect(pool!.restaurants).toEqual([])
+    expect(pool!.missing).toEqual(['food'])
+  })
+
+  it('fails when the sights themselves cannot be loaded', async () => {
+    const { pool, error } = await run((part) => (part === 'sights' ? down() : ok(part)))
+    expect(pool).toBeUndefined()
+    expect(error).toMatchObject({ name: 'HttpError' })
+  })
+
+  it('does not accept a partial answer that Overpass marks as timed out', async () => {
+    const remark = 'runtime error: Query timed out in "query" at line 3 after 26 seconds.'
+    const { pool, error, seen } = await run((part) =>
+      part === 'sights'
+        ? new Response(JSON.stringify({ elements: answers.sights, remark }), { status: 200 })
+        : ok(part),
+    )
+    expect(pool).toBeUndefined()
+    expect(error).toMatchObject({ name: 'HttpError' })
+    expect(seen.sights).toHaveLength(OVERPASS_MIRRORS.length)
   })
 })
 

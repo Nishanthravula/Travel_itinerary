@@ -64,7 +64,7 @@ test('plans a trip: three options, a timeline, stays, share link and saved trip'
   // The share link rebuilds the same trip, from the cached places.
   await page.reload()
   await expect(page.getByTestId('option-card')).toHaveCount(3)
-  expect(calls.overpass).toBe(1)
+  expect(calls.overpass).toBe(4) // sights, food, stays, parks — once each, then cached
 
   await page.getByTestId('saved-open').click()
   await expect(page.getByTestId('saved-item').first()).toContainText('Lisbon')
@@ -80,7 +80,7 @@ test('explains itself and offers a retry when the places service is down', async
   await expect(error).toBeVisible({ timeout: 20_000 })
   await expect(error).toContainText(/places service/)
   await expect(error.getByRole('button', { name: 'Try again' })).toBeVisible()
-  expect(calls.overpass).toBe(3) // one attempt per mirror
+  expect(calls.overpass).toBe(12) // four parts, one attempt per mirror each
 })
 
 test('says so when the destination cannot be found', async ({ page, context }) => {
@@ -182,4 +182,15 @@ test('reloading a planned trip reopens the saved copy instead of saving a duplic
   expect(calls.geocode).toBe(geocodes) // nothing was looked up again
   await page.getByTestId('saved-open').click()
   await expect(page.getByTestId('saved-item')).toHaveCount(1)
+})
+
+test('still plans the trip, and says what is missing, when only restaurants fail to load', async ({
+  page,
+  context,
+}) => {
+  await mockApis(context, { foodDown: true })
+  await page.goto(`/?q=Lisbon&from=${inDays(3)}&to=${inDays(5)}&n=2&by=car`)
+  await expect(page.getByTestId('option-card').first()).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByText(/Restaurants and cafés could not be loaded/)).toBeVisible()
+  await expect(page.getByTestId('error-card')).toHaveCount(0)
 })
