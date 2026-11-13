@@ -1,4 +1,5 @@
 import type { Destination } from '../types'
+import { fetchJson } from './http'
 
 interface OpenMeteoGeoResult {
   name: string
@@ -11,37 +12,39 @@ interface OpenMeteoGeoResult {
   population?: number
 }
 
+const toDestination = (r: OpenMeteoGeoResult): Destination => ({
+  name: r.name,
+  lat: r.latitude,
+  lon: r.longitude,
+  country: r.country ?? '',
+  countryCode: (r.country_code ?? '').toUpperCase(),
+  admin1: r.admin1,
+  timezone: r.timezone ?? 'UTC',
+  population: r.population,
+})
+
 /**
- * Geocode a free-text destination via Open-Meteo's geocoding API
- * (free, keyless, CORS-enabled).
+ * Find places matching free text via Open-Meteo's geocoding API (free,
+ * keyless, CORS-enabled). Largest first — "Paris" should lead with Paris,
+ * France — but every match is returned so the traveller can pick.
  */
-export async function geocodeDestination(query: string): Promise<Destination> {
+export async function searchDestinations(
+  query: string,
+  signal?: AbortSignal,
+): Promise<Destination[]> {
   const url = new URL('https://geocoding-api.open-meteo.com/v1/search')
   url.searchParams.set('name', query.trim())
-  url.searchParams.set('count', '5')
+  url.searchParams.set('count', '6')
   url.searchParams.set('language', 'en')
   url.searchParams.set('format', 'json')
 
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`Geocoding failed (HTTP ${res.status})`)
-  const data = (await res.json()) as { results?: OpenMeteoGeoResult[] }
-
-  const results = data.results ?? []
-  if (results.length === 0) {
-    throw new Error(`Could not find "${query}". Try "City, Country" (e.g. "Kyoto, Japan").`)
-  }
-  // Prefer the most populous match — free text like "Paris" should mean
-  // Paris, France rather than Paris, Texas.
-  const best = [...results].sort((a, b) => (b.population ?? 0) - (a.population ?? 0))[0]
-
-  return {
-    name: best.name,
-    lat: best.latitude,
-    lon: best.longitude,
-    country: best.country ?? '',
-    countryCode: (best.country_code ?? '').toUpperCase(),
-    admin1: best.admin1,
-    timezone: best.timezone ?? 'UTC',
-    population: best.population,
-  }
+  const data = await fetchJson<{ results?: OpenMeteoGeoResult[] }>(url, {
+    timeoutMs: 8000,
+    retries: 1,
+    signal,
+  })
+  return [...(data.results ?? [])]
+    .sort((a, b) => (b.population ?? 0) - (a.population ?? 0))
+    .slice(0, 5)
+    .map(toDestination)
 }

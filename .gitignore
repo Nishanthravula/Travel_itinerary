@@ -5,3 +5,6 @@ dev-dist/
 *.local
 .DS_Store
 *.tsbuildinfo
+.superpowers/
+test-results/
+playwright-report/

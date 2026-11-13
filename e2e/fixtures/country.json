@@ -1,0 +1,14 @@
+{
+ "currencies": {
+  "EUR": {
+   "name": "Euro",
+   "symbol": "€"
+  }
+ },
+ "languages": {
+  "por": "Portuguese"
+ },
+ "car": {
+  "side": "right"
+ }
+}

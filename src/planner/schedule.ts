@@ -1,8 +1,9 @@
-import type { DayWeather, ItineraryStop, Place } from '../types'
-import { hhmmToMinutes } from '../types'
+import type { DayWeather, GeoPoint, ItineraryStop, Place, TransportMode } from '../types'
+import { haversineKm, hhmmToMinutes } from '../types'
 import { isBadWeather } from '../api/weather'
 import { centroidOf, orderByRoute } from './cluster'
-import { haversineKm, type GeoPoint } from '../types'
+import type { PlanStyle } from './styles'
+import { hopBetween, hopMinutes } from './transport'
 
 /** Time (minutes) a traveller needs after landing before sightseeing:
  *  immigration, luggage, transfer, hotel drop-off. */
@@ -11,30 +12,37 @@ export const ARRIVAL_BUFFER_MIN = 150
  *  hotel pickup, transfer, check-in, security. */
 export const DEPARTURE_BUFFER_MIN = 210
 
-const DAY_START = hhmmToMinutes('09:00')
-const DAY_END = hhmmToMinutes('21:30')
+// Clock anchors, minutes since local midnight.
+const LUNCH_EARLIEST = hhmmToMinutes('12:00')
+const LUNCH_DUE = hhmmToMinutes('12:15')
+const LUNCH_LATEST_SIGHT_END = hhmmToMinutes('13:45')
+const LUNCH_TOO_LATE = hhmmToMinutes('15:00')
+const CAFE_FROM = hhmmToMinutes('15:15')
+const CAFE_UNTIL = hhmmToMinutes('17:30')
+const EXTRA_FROM = hhmmToMinutes('17:15')
+const DINNER_EARLIEST = hhmmToMinutes('18:30')
+const DINNER_DUE = hhmmToMinutes('19:00')
+const DINNER_LATEST_SIGHT_END = hhmmToMinutes('20:00')
+/** Nothing is scheduled to end after this unless a flight says earlier. */
+const HARD_END = hhmmToMinutes('23:30')
 
-interface SlotTemplate {
-  startMin: number
-  durationMin: number
-  role: 'sight' | 'lunch' | 'cafe' | 'sight-late' | 'sunset' | 'dinner'
-}
-
-const FULL_DAY_TEMPLATE: SlotTemplate[] = [
-  { startMin: hhmmToMinutes('09:00'), durationMin: 105, role: 'sight' },
-  { startMin: hhmmToMinutes('11:00'), durationMin: 90, role: 'sight' },
-  { startMin: hhmmToMinutes('12:45'), durationMin: 75, role: 'lunch' },
-  { startMin: hhmmToMinutes('14:15'), durationMin: 95, role: 'sight' },
-  { startMin: hhmmToMinutes('16:00'), durationMin: 45, role: 'cafe' },
-  { startMin: hhmmToMinutes('17:00'), durationMin: 90, role: 'sight-late' },
-  { startMin: hhmmToMinutes('19:00'), durationMin: 45, role: 'sunset' },
-  { startMin: hhmmToMinutes('19:45'), durationMin: 90, role: 'dinner' },
-]
+const CAFE_MIN = 45
+const EXTRA_MIN = 45
+const SUNSET_MIN = 45
+/** A walking leg longer than this gets a "consider transit" note. */
+const LONG_WALK_MIN = 30
+/** A meal this close to the traveller counts as "right here", km. */
+const FOOD_NEARBY_KM = 1.2
+/** Dinner may begin this long after sightseeing ends for the day. */
+const DINNER_GRACE_MIN = 45
+const EXTRA_NOTE = 'Local favourite — a market, bakery or bar worth a stop'
 
 export interface DayInputs {
   sights: Place[]
   restaurants: Place[]
   cafes: Place[]
+  /** Markets, bakeries and bars for the food style's extra stop. */
+  markets?: Place[]
   weather?: DayWeather
   /** Minutes since local midnight the day becomes usable (arrival day). */
   notBefore?: number
@@ -43,6 +51,8 @@ export interface DayInputs {
   /** Restaurant/cafe ids already used earlier in the trip. */
   usedIds: Set<string>
   cityCenter: GeoPoint
+  style: PlanStyle
+  transport: TransportMode
 }
 
 export interface ScheduledDay {
@@ -50,24 +60,30 @@ export interface ScheduledDay {
   notes: string[]
 }
 
+const roundUp5 = (min: number) => Math.ceil(min / 5) * 5
+
 /**
- * Fill one day's slot template with concrete places.
+ * Build one day as a continuous timeline.
+ *
+ * Stops are laid end to end with the estimated travel time between them, so
+ * a day never holds more than physically fits for the chosen transport.
+ * Lunch, a café and dinner are slotted in when the clock reaches them.
  *
  * - Sights are routed nearest-neighbour to minimise backtracking.
- * - On rainy days indoor sights are scheduled first and a note is added.
- * - Lunch/dinner/café picks are the top-rated options closest to where
- *   the traveller will actually be at that hour.
- * - Viewpoints get the sunset slot when the evening is clear.
+ * - On rainy days indoor sights come first and a note is added.
+ * - Food picks are the strongest options closest to where the traveller
+ *   will be at that hour, never repeated across the trip.
+ * - A viewpoint is held for golden hour when the evening is clear.
  */
 export function scheduleDay(inputs: DayInputs): ScheduledDay {
-  const { weather, usedIds } = inputs
+  const { weather, usedIds, style, transport } = inputs
   const notes: string[] = []
-  const windowStart = Math.max(inputs.notBefore ?? DAY_START, DAY_START)
-  const windowEnd = Math.min(inputs.notAfter ?? DAY_END, DAY_END)
 
-  const slots = FULL_DAY_TEMPLATE.filter(
-    (s) => s.startMin >= windowStart && s.startMin + s.durationMin <= windowEnd,
-  )
+  const dayStart = hhmmToMinutes(style.dayStart)
+  const hardEnd = Math.min(inputs.notAfter ?? HARD_END, HARD_END)
+  /** Sights end by here; meals start by here. */
+  const softEnd = Math.min(hhmmToMinutes(style.dayEnd), hardEnd)
+  let t = roundUp5(Math.max(inputs.notBefore ?? dayStart, dayStart))
 
   const rainy = weather ? isBadWeather(weather) : false
   if (rainy) {
@@ -75,87 +91,139 @@ export function scheduleDay(inputs: DayInputs): ScheduledDay {
       `Rain likely (${weather!.precipProbability}% chance) — indoor sights are scheduled first; pack a rain layer.`,
     )
   }
+  if (t >= softEnd) return { stops: [], notes }
 
-  // Choose today's sights, indoor-first when the forecast is poor.
-  let sights = [...inputs.sights]
-  if (rainy) {
-    sights.sort((a, b) => Number(b.indoor) - Number(a.indoor) || b.score - a.score)
-  }
-
-  // Sunset slot: reserve the best viewpoint for golden hour on clear evenings.
+  // Order today's sights: indoor-first in rain, otherwise a short route.
+  let queue = [...inputs.sights]
   let sunsetPick: Place | undefined
-  if (!rainy) {
-    const vpIdx = sights.findIndex((s) => s.kind === 'viewpoint')
-    if (vpIdx >= 0) sunsetPick = sights.splice(vpIdx, 1)[0]
+  if (rainy) {
+    queue.sort((a, b) => Number(b.indoor) - Number(a.indoor) || b.score - a.score)
+  } else {
+    const vpIdx = queue.findIndex((s) => s.kind === 'viewpoint')
+    if (vpIdx >= 0) sunsetPick = queue.splice(vpIdx, 1)[0]
+    queue = orderByRoute(queue, centroidOf(queue) ?? inputs.cityCenter)
+    if (sunsetPick) queue.push(sunsetPick) // held back; pulled forward at golden hour
   }
 
-  const anchor = centroidOf(sights) ?? inputs.cityCenter
-  sights = rainy ? sights : orderByRoute(sights, anchor)
+  const sunsetMin = hhmmToMinutes(weather?.sunset ?? '19:15')
+  const inGoldenHour = (at: number) => at >= sunsetMin - 75 && at <= sunsetMin + 15
 
   const stops: ItineraryStop[] = []
-  let sightCursor = 0
-  let lastPos: GeoPoint = inputs.cityCenter
+  let lastPos: GeoPoint | null = null
+  let sightsDone = 0
+  let sightsOpen = true
+  let lunch = false
+  let cafe = false
+  let extra = !(style.extraFoodStop && inputs.markets && inputs.markets.length > 0)
+  let dinner = false
 
-  const sunsetMin = weather ? hhmmToMinutes(weather.sunset) : hhmmToMinutes('19:15')
-
-  for (const slot of slots) {
-    switch (slot.role) {
-      case 'sight':
-      case 'sight-late': {
-        const place = sights[sightCursor++]
-        if (!place) break
-        stops.push({
-          place,
-          startMin: slot.startMin,
-          durationMin: slot.durationMin,
-          note: noteForSight(place, rainy),
-        })
-        lastPos = place
-        break
-      }
-      case 'lunch':
-      case 'dinner': {
-        const pick = pickNearest(inputs.restaurants, lastPos, usedIds)
-        if (!pick) break
-        usedIds.add(pick.id)
-        stops.push({
-          place: pick,
-          startMin: slot.startMin,
-          durationMin: slot.durationMin,
-          note: pick.cuisine
-            ? `${capitalize(pick.cuisine)} cuisine — a well-regarded local spot`
-            : 'Well-regarded local spot',
-        })
-        break
-      }
-      case 'cafe': {
-        const pick = pickNearest(inputs.cafes, lastPos, usedIds)
-        if (!pick) break
-        usedIds.add(pick.id)
-        stops.push({
-          place: pick,
-          startMin: slot.startMin,
-          durationMin: slot.durationMin,
-          note: 'Local café — recharge before the evening',
-        })
-        break
-      }
-      case 'sunset': {
-        if (!sunsetPick) break
-        const start = Math.max(slot.startMin, sunsetMin - 45)
-        if (start + slot.durationMin > windowEnd) break
-        stops.push({
-          place: sunsetPick,
-          startMin: start,
-          durationMin: slot.durationMin,
-          note: `Golden hour — sunset around ${weather?.sunset ?? '19:15'}`,
-        })
-        break
-      }
+  /** Append a stop if it fits; returns whether it was added. */
+  const add = (
+    place: Place,
+    durationMin: number,
+    note: string | undefined,
+    opts: { earliest?: number; mustEndBy: number; mustStartBy: number },
+  ): boolean => {
+    const hop = lastPos ? hopBetween(lastPos, place, transport) : undefined
+    const travel = hop?.minutes
+    const startMin = roundUp5(Math.max(t + (travel ?? 0), opts.earliest ?? 0))
+    if (startMin > opts.mustStartBy || startMin + durationMin > opts.mustEndBy) return false
+    if (travel !== undefined && transport === 'walk' && travel > LONG_WALK_MIN && lastPos) {
+      const from = stops[stops.length - 1]?.place.name ?? 'the previous stop'
+      notes.push(
+        `Long walk between ${from} and ${place.name} (≈ ${travel} min) — consider transit for this leg.`,
+      )
     }
+    stops.push({ place, startMin, durationMin, note, travelFromPrevMin: travel, travelBy: hop?.by })
+    t = startMin + durationMin
+    lastPos = place
+    return true
   }
 
-  stops.sort((a, b) => a.startMin - b.startMin)
+  const nextSight = (): { place: Place; duration: number; golden: boolean } | null => {
+    if (!sightsOpen || sightsDone >= style.sightsPerDay || queue.length === 0) return null
+    if (sunsetPick && queue.includes(sunsetPick) && inGoldenHour(t)) {
+      return { place: sunsetPick, duration: SUNSET_MIN, golden: true }
+    }
+    return { place: queue[0], duration: style.sightStayMin, golden: false }
+  }
+
+  const foodAnchor = (): GeoPoint => lastPos ?? centroidOf(queue) ?? inputs.cityCenter
+
+  // Each pass either adds a stop, retires a slot, or jumps the clock forward.
+  for (let guard = 0; guard < 40 && !dinner; guard++) {
+    const sight = nextSight()
+    /** When the next sight would finish — never, if there is none to place. */
+    const sightEnd = sight
+      ? t + (lastPos ? hopMinutes(lastPos, sight.place, transport) : 0) + sight.duration
+      : null
+    const overruns = (limit: number) => sightEnd !== null && sightEnd > limit
+
+    if (!lunch && t >= LUNCH_TOO_LATE) {
+      lunch = true // arrived too late for lunch
+      continue
+    }
+    if (!lunch && (t >= LUNCH_DUE || overruns(LUNCH_LATEST_SIGHT_END))) {
+      lunch = true
+      const pick = pickNearest(inputs.restaurants, foodAnchor(), usedIds)
+      if (pick && add(pick, style.mealMin, mealNote(pick), {
+        earliest: LUNCH_EARLIEST, mustStartBy: softEnd, mustEndBy: hardEnd,
+      })) usedIds.add(pick.id)
+      continue
+    }
+    if (t >= DINNER_DUE || overruns(DINNER_LATEST_SIGHT_END) || overruns(softEnd)) {
+      // One last small stop before dinner for the food style.
+      if (!extra && t >= EXTRA_FROM) {
+        extra = true
+        const pick = pickNearest(inputs.markets ?? [], foodAnchor(), usedIds)
+        if (pick && add(pick, EXTRA_MIN, EXTRA_NOTE, { mustStartBy: softEnd, mustEndBy: hardEnd })) {
+          usedIds.add(pick.id)
+        }
+        continue
+      }
+      dinner = true
+      const pick = pickNearest(inputs.restaurants, foodAnchor(), usedIds)
+      if (pick && add(pick, style.mealMin, mealNote(pick), {
+        earliest: DINNER_EARLIEST, mustStartBy: softEnd + DINNER_GRACE_MIN, mustEndBy: hardEnd,
+      })) usedIds.add(pick.id)
+      continue
+    }
+    if (!cafe && t >= CAFE_FROM) {
+      cafe = true
+      if (t < CAFE_UNTIL) {
+        const pick = pickNearest(inputs.cafes, foodAnchor(), usedIds)
+        if (pick && add(pick, CAFE_MIN, 'Local café — recharge before the evening', {
+          mustStartBy: softEnd, mustEndBy: hardEnd,
+        })) usedIds.add(pick.id)
+      }
+      continue
+    }
+    if (!sight && !extra && t >= EXTRA_FROM) {
+      extra = true
+      const pick = pickNearest(inputs.markets ?? [], foodAnchor(), usedIds)
+      if (pick && add(pick, EXTRA_MIN, EXTRA_NOTE, { mustStartBy: softEnd, mustEndBy: hardEnd })) {
+        usedIds.add(pick.id)
+      }
+      continue
+    }
+    if (sight) {
+      const note = sight.golden
+        ? `Golden hour — sunset around ${weather?.sunset ?? '19:15'}`
+        : noteForSight(sight.place, rainy)
+      if (add(sight.place, sight.duration, note, { mustStartBy: softEnd, mustEndBy: softEnd })) {
+        queue.splice(queue.indexOf(sight.place), 1)
+        sightsDone++
+      } else {
+        sightsOpen = false // out of daylight for sights; meals may still fit
+      }
+      continue
+    }
+    // No sight to place: move the clock to the next thing that is due.
+    const next = !lunch ? LUNCH_DUE : !cafe ? CAFE_FROM : !extra ? EXTRA_FROM : DINNER_DUE
+    if (next <= t) break
+    t = next
+  }
+
   return { stops, notes }
 }
 
@@ -164,14 +232,27 @@ function pickNearest(
   from: GeoPoint,
   usedIds: Set<string>,
 ): Place | undefined {
-  // Candidates arrive pre-sorted by score; among the strongest options,
-  // take the one closest to the traveller's current position.
-  const fresh = candidates.filter((c) => !usedIds.has(c.id))
-  const shortlist = fresh.slice(0, 12)
-  if (shortlist.length === 0) return undefined
-  return shortlist.reduce((best, c) =>
-    haversineKm(c, from) < haversineKm(best, from) ? c : best,
-  )
+  // Eat where you are: the best-regarded place within a short walk of the
+  // traveller's position. Only when nothing is that close, the nearest.
+  const open = candidates
+    .filter((c) => !usedIds.has(c.id))
+    .map((place) => ({ place, km: haversineKm(place, from) }))
+  if (open.length === 0) return undefined
+  const nearby = open.filter((c) => c.km <= FOOD_NEARBY_KM)
+  if (nearby.length > 0) {
+    return nearby.reduce((best, c) =>
+      c.place.score > best.place.score || (c.place.score === best.place.score && c.km < best.km)
+        ? c
+        : best,
+    ).place
+  }
+  return open.reduce((best, c) => (c.km < best.km ? c : best)).place
+}
+
+function mealNote(pick: Place): string {
+  return pick.cuisine
+    ? `${capitalize(pick.cuisine)} cuisine — a well-regarded local spot`
+    : 'Well-regarded local spot'
 }
 
 function noteForSight(place: Place, rainy: boolean): string | undefined {
@@ -182,6 +263,7 @@ function noteForSight(place: Place, rainy: boolean): string | undefined {
     case 'viewpoint':
       return 'Best light in the morning or golden hour'
     case 'park':
+    case 'national_park':
       return 'Mornings are quieter and cooler'
     default:
       return place.wikipedia ? 'A signature sight of the city' : undefined

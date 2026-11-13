@@ -1,25 +1,26 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// Cache names are shared with src/offline/tiles.ts (offline area download
-// writes into the same tile cache the service worker reads from).
-export const TILE_CACHE = 'osm-tiles-v1'
-export const API_CACHE = 'api-data-v1'
+const MAP_CACHE = 'map-data-v2'
+const API_CACHE = 'api-data-v2'
 
 export default defineConfig({
+  // The map library is large but loads only when a plan is opened.
+  build: { chunkSizeWarningLimit: 1200 },
+  test: { exclude: ['e2e/**', 'node_modules/**', 'dist/**'] },
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'],
       manifest: {
-        name: 'Wayfarer — Smart Travel Itinerary',
+        name: 'Wayfarer trip planner',
         short_name: 'Wayfarer',
         description:
-          'Weather-aware, flight-aware travel itineraries with offline maps.',
-        theme_color: '#0f766e',
-        background_color: '#f8fafc',
+          'Three complete trip plans to compare: sights, local food and places to stay.',
+        theme_color: '#2743d6',
+        background_color: '#f6f7f5',
         display: 'standalone',
         start_url: '/',
         icons: [
@@ -35,27 +36,28 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        cleanupOutdatedCaches: true,
         navigateFallback: '/index.html',
         runtimeCaching: [
           {
-            // Map tiles: cache-first so previously viewed / downloaded areas
-            // keep working with no connectivity.
-            urlPattern: /^https:\/\/[abc]\.tile\.openstreetmap\.org\/.*/i,
+            // Map style, glyphs, sprites and vector tiles: cache-first, so
+            // areas already viewed keep drawing with no connectivity.
+            urlPattern: /^https:\/\/tiles\.openfreemap\.org\/.*/i,
             handler: 'CacheFirst',
             options: {
-              cacheName: TILE_CACHE,
+              cacheName: MAP_CACHE,
               expiration: {
-                maxEntries: 4000,
-                maxAgeSeconds: 60 * 60 * 24 * 60, // 60 days
+                maxEntries: 3000,
+                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
               },
               cacheableResponse: { statuses: [0, 200] },
             },
           },
           {
-            // Weather / geocoding / places / wiki: serve fresh when online,
+            // Weather / geocoding / wiki: serve fresh when online,
             // fall back to cache when offline.
             urlPattern:
-              /^https:\/\/(api\.open-meteo\.com|geocoding-api\.open-meteo\.com|overpass-api\.de|en\.wikipedia\.org|restcountries\.com)\/.*/i,
+              /^https:\/\/(api\.open-meteo\.com|geocoding-api\.open-meteo\.com|en\.wikipedia\.org|restcountries\.com)\/.*/i,
             handler: 'NetworkFirst',
             options: {
               cacheName: API_CACHE,

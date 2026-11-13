@@ -1,0 +1,24 @@
+{
+ "results": [
+  {
+   "name": "Lisbon",
+   "latitude": 38.7167,
+   "longitude": -9.1333,
+   "country": "Portugal",
+   "country_code": "PT",
+   "admin1": "Lisbon",
+   "timezone": "Europe/Lisbon",
+   "population": 517802
+  },
+  {
+   "name": "Lisbon",
+   "latitude": 44.0312,
+   "longitude": -70.1045,
+   "country": "United States",
+   "country_code": "US",
+   "admin1": "Maine",
+   "timezone": "America/New_York",
+   "population": 9009
+  }
+ ]
+}

@@ -1,50 +1,48 @@
 ---
 name: verify
-description: Build, run and drive the Wayfarer PWA end-to-end in headless Chromium to verify changes at the GUI surface.
+description: Build, test and drive the Wayfarer PWA end-to-end in headless Chromium to verify changes at the GUI surface.
 ---
 
 # Verifying Wayfarer
 
-## Build & serve
-
 ```bash
-npm run build                      # tsc + vite build + service worker
-npm run preview -- --port 4173 --strictPort   # run in background
+npm run lint && npm run typecheck && npm test   # static checks + unit tests
+npm run build                                    # tsc + vite build + service worker
+npm run e2e                                      # Playwright smoke tests (starts `vite preview` itself)
 ```
 
-Unit tests for the planner core: `npm test` (vitest, pure logic, no DOM).
+## How the browser tests work
 
-## Drive the GUI
+- `e2e/mocks.ts` serves every third-party API from `e2e/fixtures/*.json`
+  (a Lisbon data set). Session egress usually blocks the real hosts, and
+  tests must not depend on live data anyway.
+- The Playwright config sets `serviceWorkers: 'block'`: the service
+  worker's own fetches bypass request mocking, so with it enabled the mocks
+  silently fail.
+- Map tiles are mocked with an empty style, so the map initialises but
+  draws nothing. Pins are DOM elements (`.pin`) and can be asserted.
+- Stable hooks: `data-testid` = `search-submit`, `option-card`,
+  `plan-view`, `day-tab`, `stay-tab`, `stay-row`, `stop`, `hop`,
+  `saved-open`, `saved-item`, `error-card`, `map`.
 
-Playwright 1.56+ is installed globally in the remote env
-(`/opt/node22/lib/node_modules/playwright/index.mjs`); Chromium lives in
-`/opt/pw-browsers`. Import by absolute path in an .mjs script — ESM ignores
-NODE_PATH.
+## Flows the smoke tests cover
 
-**Gotchas learned the hard way:**
+1. Search (suggestion, date range, people, transport) → three option cards.
+2. Open a plan → timeline with `≈` hops, rainy-day note, Stay tab whose
+   *Check prices* link carries dates, guests and rooms.
+3. Reload → share link rebuilds from the cached places (one Overpass call).
+4. Places service down on all mirrors → error card with *Try again*.
+5. Unknown destination → error naming it. Broken share link → prefill only.
+6. Search bar operated from the keyboard alone.
 
-- Session egress policy blocks the third-party APIs (open-meteo, overpass,
-  wikipedia, restcountries, OSM tiles) — 403 CONNECT from the proxy. Verify
-  with `context.route()` interception serving canned JSON payloads
-  (see the shapes in `src/api/*.ts`).
-- **The app registers a service worker whose fetches BYPASS Playwright
-  routing.** Create the main test context with `serviceWorkers: 'block'`
-  or all API mocks silently fail with `net::ERR_FAILED`.
-- To test the PWA offline shell, use a *separate* context (SW allowed):
-  `goto` → `navigator.serviceWorker.ready` → wait ~1.5 s for precache →
-  `context.setOffline(true)` → `reload` → assert `h1` renders and
-  `.offline-pill` is visible.
-- Tile-cache assertions: `caches.open('osm-tiles-v1')` from page context
-  (cache name is shared between vite.config.ts and src/offline/tiles.ts).
+## Looking at it
 
-## Flows worth driving
+For a visual check, write a throwaway spec that calls `mockApis(context)`,
+loads `/?q=Lisbon&from=<date>&to=<date>&n=3&by=transit` and screenshots at
+1280 px and 390 px in `colorScheme: 'light'` and `'dark'`.
 
-1. Fill form (destination, days, flight times via "+ Add flight details"),
-   submit, wait for `.itinerary`.
-2. Assert: 3 `.day-card`s, `.day-marker`s on the map, rainy-day badge +
-   "Rain likely" note, day-1 first `.stop-time` ≥ arrival+2.5 h, last-day
-   final stop ends ≤ departure−3.5 h, unique restaurant names across days.
-3. "Download offline map" button → wait for "✓ Offline map ready", count
-   intercepted tile requests (expect ~360).
-4. Reload → saved trip in `.trip-item` → click reopens from localStorage.
-5. Error path: geocode mock returning `{results: []}` → `.status-card.error`.
+## Not verifiable offline
+
+The real map (OpenFreeMap) and the content-security-policy in
+`netlify.toml` can only be checked on a deployed preview: open a plan,
+confirm the map draws and the console shows no CSP violations.

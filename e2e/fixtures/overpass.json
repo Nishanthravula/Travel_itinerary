@@ -1,0 +1,1270 @@
+{
+ "elements": [
+  {
+   "type": "node",
+   "id": 1000,
+   "lat": 38.6916,
+   "lon": -9.216,
+   "tags": {
+    "name": "Belém Tower",
+    "tourism": "attraction",
+    "historic": "tower",
+    "wikidata": "Q215003",
+    "wikipedia": "en:Belém Tower",
+    "heritage": "1"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1001,
+   "lat": 38.6979,
+   "lon": -9.2068,
+   "tags": {
+    "name": "Jerónimos Monastery",
+    "tourism": "attraction",
+    "wikidata": "Q272781",
+    "wikipedia": "en:Jerónimos Monastery",
+    "heritage": "1"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1002,
+   "lat": 38.6936,
+   "lon": -9.2057,
+   "tags": {
+    "name": "Monument to the Discoveries",
+    "historic": "monument",
+    "wikidata": "Q1368040",
+    "wikipedia": "en:Padrão dos Descobrimentos"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1003,
+   "lat": 38.6958,
+   "lon": -9.1944,
+   "tags": {
+    "name": "MAAT",
+    "tourism": "museum",
+    "wikidata": "Q23000636",
+    "wikipedia": "en:MAAT"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1004,
+   "lat": 38.6968,
+   "lon": -9.199,
+   "tags": {
+    "name": "National Coach Museum",
+    "tourism": "museum",
+    "wikidata": "Q1325149",
+    "wikipedia": "en:National Coach Museum"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1005,
+   "lat": 38.7035,
+   "lon": -9.1789,
+   "tags": {
+    "name": "LX Factory",
+    "tourism": "attraction",
+    "website": "https://lxfactory.com"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1006,
+   "lat": 38.7045,
+   "lon": -9.1617,
+   "tags": {
+    "name": "National Museum of Ancient Art",
+    "tourism": "museum",
+    "wikidata": "Q212557",
+    "wikipedia": "en:Museu Nacional de Arte Antiga"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1007,
+   "lat": 38.7075,
+   "lon": -9.1364,
+   "tags": {
+    "name": "Praça do Comércio",
+    "tourism": "attraction",
+    "wikidata": "Q1147775",
+    "wikipedia": "en:Praça do Comércio"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1008,
+   "lat": 38.7084,
+   "lon": -9.1368,
+   "tags": {
+    "name": "Rua Augusta Arch",
+    "historic": "monument",
+    "wikidata": "Q2470214",
+    "wikipedia": "en:Rua Augusta Arch"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1009,
+   "lat": 38.7121,
+   "lon": -9.1394,
+   "tags": {
+    "name": "Santa Justa Lift",
+    "tourism": "attraction",
+    "wikidata": "Q1164925",
+    "wikipedia": "en:Santa Justa Lift"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1010,
+   "lat": 38.712,
+   "lon": -9.1405,
+   "tags": {
+    "name": "Carmo Convent",
+    "historic": "ruins",
+    "wikidata": "Q1125361",
+    "wikipedia": "en:Carmo Convent"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1011,
+   "lat": 38.7098,
+   "lon": -9.1326,
+   "tags": {
+    "name": "Lisbon Cathedral",
+    "tourism": "attraction",
+    "wikidata": "Q1146011",
+    "wikipedia": "en:Lisbon Cathedral",
+    "heritage": "1"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1012,
+   "lat": 38.7139,
+   "lon": -9.1335,
+   "tags": {
+    "name": "São Jorge Castle",
+    "historic": "castle",
+    "wikidata": "Q732438",
+    "wikipedia": "en:São Jorge Castle",
+    "heritage": "1"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1013,
+   "lat": 38.7117,
+   "lon": -9.1302,
+   "tags": {
+    "name": "Miradouro de Santa Luzia",
+    "tourism": "viewpoint",
+    "wikidata": "Q10330227"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1014,
+   "lat": 38.719,
+   "lon": -9.1325,
+   "tags": {
+    "name": "Miradouro da Senhora do Monte",
+    "tourism": "viewpoint",
+    "wikidata": "Q10330224"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1015,
+   "lat": 38.7152,
+   "lon": -9.1442,
+   "tags": {
+    "name": "Miradouro de São Pedro de Alcântara",
+    "tourism": "viewpoint",
+    "wikidata": "Q10330230"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1016,
+   "lat": 38.715,
+   "lon": -9.1247,
+   "tags": {
+    "name": "National Pantheon",
+    "tourism": "attraction",
+    "wikidata": "Q1321437",
+    "wikipedia": "en:Church of Santa Engrácia"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1017,
+   "lat": 38.7245,
+   "lon": -9.1136,
+   "tags": {
+    "name": "National Tile Museum",
+    "tourism": "museum",
+    "wikidata": "Q1967480",
+    "wikipedia": "en:National Azulejo Museum"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1018,
+   "lat": 38.7111,
+   "lon": -9.1275,
+   "tags": {
+    "name": "Fado Museum",
+    "tourism": "museum",
+    "wikidata": "Q10333677"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1019,
+   "lat": 38.7374,
+   "lon": -9.1546,
+   "tags": {
+    "name": "Calouste Gulbenkian Museum",
+    "tourism": "museum",
+    "wikidata": "Q681263",
+    "wikipedia": "en:Calouste Gulbenkian Museum"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1020,
+   "lat": 38.7633,
+   "lon": -9.0937,
+   "tags": {
+    "name": "Oceanário de Lisboa",
+    "tourism": "aquarium",
+    "wikidata": "Q1132837",
+    "wikipedia": "en:Lisbon Oceanarium"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1021,
+   "lat": 38.7087,
+   "lon": -9.1466,
+   "tags": {
+    "name": "Elevador da Bica",
+    "tourism": "attraction",
+    "wikidata": "Q3050986"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1022,
+   "lat": 38.7134,
+   "lon": -9.1607,
+   "tags": {
+    "name": "Basílica da Estrela",
+    "tourism": "attraction",
+    "wikidata": "Q810048",
+    "wikipedia": "en:Estrela Basilica"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1023,
+   "lat": 38.7031,
+   "lon": -9.1706,
+   "tags": {
+    "name": "Museu do Oriente",
+    "tourism": "museum",
+    "wikidata": "Q1954863"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1024,
+   "lat": 38.7269,
+   "lon": -9.1664,
+   "tags": {
+    "name": "Águas Livres Aqueduct",
+    "tourism": "attraction",
+    "wikidata": "Q389714",
+    "wikipedia": "en:Águas Livres Aqueduct"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1025,
+   "lat": 38.709,
+   "lon": -9.1326,
+   "tags": {
+    "name": "Casa dos Bicos",
+    "tourism": "attraction",
+    "wikidata": "Q1046680"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1026,
+   "lat": 38.7137,
+   "lon": -9.1436,
+   "tags": {
+    "name": "Church of São Roque",
+    "tourism": "attraction",
+    "wikidata": "Q1079876"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1027,
+   "lat": 38.7577,
+   "lon": -9.1553,
+   "tags": {
+    "name": "Museu Bordalo Pinheiro",
+    "tourism": "museum"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1028,
+   "lat": 38.7156,
+   "lon": -9.1255,
+   "tags": {
+    "name": "Feira da Ladra viewpoint",
+    "tourism": "viewpoint"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1029,
+   "lat": 38.7093,
+   "lon": -9.141,
+   "tags": {
+    "name": "Chiado Museum",
+    "tourism": "museum",
+    "wikidata": "Q1954617"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1030,
+   "lat": 38.711,
+   "lon": -9.129,
+   "tags": {
+    "name": "Alfama Old Wall",
+    "tourism": "attraction"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1031,
+   "lat": 38.716,
+   "lon": -9.136,
+   "tags": {
+    "name": "Mouraria Mural Walk",
+    "tourism": "attraction"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1032,
+   "lat": 38.7168,
+   "lon": -9.131,
+   "tags": {
+    "name": "Graça Convent",
+    "tourism": "attraction"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1033,
+   "lat": 38.7078,
+   "lon": -9.156,
+   "tags": {
+    "name": "Museu da Marioneta",
+    "tourism": "museum"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1034,
+   "lat": 38.708,
+   "lon": -9.148,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "Ponto Final",
+    "cuisine": "portuguese",
+    "website": "https://example.com/0",
+    "opening_hours": "Tu-Su 12:00-23:00"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1035,
+   "lat": 38.7157,
+   "lon": -9.139,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "Zé da Mouraria",
+    "cuisine": "seafood"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1036,
+   "lat": 38.7113,
+   "lon": -9.129999999999999,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "A Cevicheria",
+    "cuisine": "portuguese"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1037,
+   "lat": 38.719,
+   "lon": -9.1444,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "O Velho Eurico",
+    "cuisine": "petiscos",
+    "website": "https://example.com/3",
+    "opening_hours": "Tu-Su 12:00-23:00"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1038,
+   "lat": 38.7146,
+   "lon": -9.135399999999999,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "Taberna da Rua das Flores",
+    "cuisine": "regional"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1039,
+   "lat": 38.7102,
+   "lon": -9.1264,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "Cervejaria Ramiro",
+    "cuisine": "fish"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1040,
+   "lat": 38.7179,
+   "lon": -9.1408,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "Solar dos Presuntos",
+    "cuisine": "portuguese",
+    "website": "https://example.com/6",
+    "opening_hours": "Tu-Su 12:00-23:00"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1041,
+   "lat": 38.713499999999996,
+   "lon": -9.1318,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "Prado",
+    "cuisine": "mozambican"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1042,
+   "lat": 38.7091,
+   "lon": -9.1462,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "Cantinho do Aziz",
+    "cuisine": "goan"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1043,
+   "lat": 38.7168,
+   "lon": -9.1372,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "Jesus é Goês",
+    "cuisine": "portuguese",
+    "website": "https://example.com/9",
+    "opening_hours": "Tu-Su 12:00-23:00"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1044,
+   "lat": 38.712399999999995,
+   "lon": -9.1282,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "Tasca do Chico",
+    "cuisine": "portuguese"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1045,
+   "lat": 38.708,
+   "lon": -9.1426,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "A Provinciana",
+    "cuisine": "seafood"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1046,
+   "lat": 38.7157,
+   "lon": -9.1336,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "Casa do Alentejo",
+    "cuisine": "portuguese",
+    "website": "https://example.com/12",
+    "opening_hours": "Tu-Su 12:00-23:00"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1047,
+   "lat": 38.7113,
+   "lon": -9.148,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "O Trevo",
+    "cuisine": "petiscos"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1048,
+   "lat": 38.719,
+   "lon": -9.139,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "Tasca Zé dos Cornos",
+    "cuisine": "regional"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1049,
+   "lat": 38.7146,
+   "lon": -9.129999999999999,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "Pharmacia",
+    "cuisine": "fish",
+    "website": "https://example.com/15",
+    "opening_hours": "Tu-Su 12:00-23:00"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1050,
+   "lat": 38.7102,
+   "lon": -9.1444,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "Alma",
+    "cuisine": "portuguese"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1051,
+   "lat": 38.7179,
+   "lon": -9.135399999999999,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "Belcanto",
+    "cuisine": "mozambican"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1052,
+   "lat": 38.713499999999996,
+   "lon": -9.1264,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "Sála",
+    "cuisine": "goan",
+    "website": "https://example.com/18",
+    "opening_hours": "Tu-Su 12:00-23:00"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1053,
+   "lat": 38.7091,
+   "lon": -9.1408,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "Boi-Cavalo",
+    "cuisine": "portuguese"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1054,
+   "lat": 38.7168,
+   "lon": -9.1318,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "Maçã Verde",
+    "cuisine": "portuguese"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1055,
+   "lat": 38.712399999999995,
+   "lon": -9.1462,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "Santo António de Alfama",
+    "cuisine": "seafood",
+    "website": "https://example.com/21",
+    "opening_hours": "Tu-Su 12:00-23:00"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1056,
+   "lat": 38.708,
+   "lon": -9.1372,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "Pateo 13",
+    "cuisine": "portuguese"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1057,
+   "lat": 38.7157,
+   "lon": -9.1282,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "Lautasco",
+    "cuisine": "petiscos"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1058,
+   "lat": 38.7113,
+   "lon": -9.1426,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "Farol de Santa Luzia",
+    "cuisine": "regional",
+    "website": "https://example.com/24",
+    "opening_hours": "Tu-Su 12:00-23:00"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1059,
+   "lat": 38.719,
+   "lon": -9.1336,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "Clube de Jornalistas",
+    "cuisine": "fish"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1060,
+   "lat": 38.7146,
+   "lon": -9.148,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "Último Porto",
+    "cuisine": "portuguese"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1061,
+   "lat": 38.7102,
+   "lon": -9.139,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "Pap'Açorda",
+    "cuisine": "mozambican",
+    "website": "https://example.com/27",
+    "opening_hours": "Tu-Su 12:00-23:00"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1062,
+   "lat": 38.7179,
+   "lon": -9.129999999999999,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "Sea Me",
+    "cuisine": "goan"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1063,
+   "lat": 38.713499999999996,
+   "lon": -9.1444,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "Bairro do Avillez",
+    "cuisine": "portuguese"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1064,
+   "lat": 38.697,
+   "lon": -9.201,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "Enoteca de Belém",
+    "cuisine": "portuguese",
+    "website": "https://example.com/30",
+    "opening_hours": "Tu-Su 12:00-23:00"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1065,
+   "lat": 38.698,
+   "lon": -9.199,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "Darwin's Café",
+    "cuisine": "seafood"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1066,
+   "lat": 38.699000000000005,
+   "lon": -9.205,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "Nune's Real Marisqueira",
+    "cuisine": "portuguese"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1067,
+   "lat": 38.697,
+   "lon": -9.203,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "Descobre",
+    "cuisine": "petiscos",
+    "website": "https://example.com/33",
+    "opening_hours": "Tu-Su 12:00-23:00"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1068,
+   "lat": 38.698,
+   "lon": -9.201,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "O Frade",
+    "cuisine": "regional"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1069,
+   "lat": 38.699000000000005,
+   "lon": -9.199,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "Canalha",
+    "cuisine": "fish"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1070,
+   "lat": 38.7105,
+   "lon": -9.139,
+   "tags": {
+    "amenity": "restaurant",
+    "name": "Burger Chain",
+    "cuisine": "burger",
+    "brand": "Burger Chain"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1071,
+   "lat": 38.709,
+   "lon": -9.15,
+   "tags": {
+    "amenity": "cafe",
+    "name": "A Brasileira"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1072,
+   "lat": 38.7126,
+   "lon": -9.142000000000001,
+   "tags": {
+    "amenity": "cafe",
+    "name": "Fábrica Coffee Roasters"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1073,
+   "lat": 38.7162,
+   "lon": -9.134,
+   "tags": {
+    "amenity": "cafe",
+    "name": "Copenhagen Coffee Lab"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1074,
+   "lat": 38.709,
+   "lon": -9.148,
+   "tags": {
+    "amenity": "cafe",
+    "name": "Hello, Kristof"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1075,
+   "lat": 38.7126,
+   "lon": -9.14,
+   "tags": {
+    "amenity": "cafe",
+    "name": "Dear Breakfast"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1076,
+   "lat": 38.7162,
+   "lon": -9.132,
+   "tags": {
+    "amenity": "cafe",
+    "name": "Café Janis"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1077,
+   "lat": 38.709,
+   "lon": -9.146,
+   "tags": {
+    "amenity": "cafe",
+    "name": "The Mill"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1078,
+   "lat": 38.7126,
+   "lon": -9.138,
+   "tags": {
+    "amenity": "cafe",
+    "name": "Comoba"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1079,
+   "lat": 38.7162,
+   "lon": -9.13,
+   "tags": {
+    "amenity": "cafe",
+    "name": "Buna"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1080,
+   "lat": 38.709,
+   "lon": -9.144,
+   "tags": {
+    "amenity": "cafe",
+    "name": "Heim Café"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1081,
+   "lat": 38.6975,
+   "lon": -9.2032,
+   "tags": {
+    "amenity": "cafe",
+    "name": "Pastéis de Belém"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1082,
+   "lat": 38.7162,
+   "lon": -9.15,
+   "tags": {
+    "amenity": "cafe",
+    "name": "Wish Slow Coffee"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1083,
+   "lat": 38.709,
+   "lon": -9.142000000000001,
+   "tags": {
+    "amenity": "cafe",
+    "name": "Simpli"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1084,
+   "lat": 38.7126,
+   "lon": -9.134,
+   "tags": {
+    "amenity": "cafe",
+    "name": "Neighbourhood"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1085,
+   "lat": 38.7069,
+   "lon": -9.1459,
+   "tags": {
+    "name": "Time Out Market",
+    "amenity": "marketplace",
+    "wikidata": "Q1"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1086,
+   "lat": 38.7178,
+   "lon": -9.1668,
+   "tags": {
+    "name": "Mercado de Campo de Ourique",
+    "amenity": "marketplace"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1087,
+   "lat": 38.7107,
+   "lon": -9.1437,
+   "tags": {
+    "name": "Manteigaria",
+    "shop": "bakery"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1088,
+   "lat": 38.7163,
+   "lon": -9.1474,
+   "tags": {
+    "name": "Pavilhão Chinês",
+    "amenity": "bar"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1089,
+   "lat": 38.7118,
+   "lon": -9.1462,
+   "tags": {
+    "name": "Park Bar",
+    "amenity": "bar"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1090,
+   "lat": 38.715,
+   "lon": -9.1461,
+   "tags": {
+    "name": "Padaria São Roque",
+    "shop": "bakery"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1091,
+   "lat": 38.7146,
+   "lon": -9.1389,
+   "tags": {
+    "name": "A Ginjinha",
+    "amenity": "bar"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1092,
+   "lat": 38.73,
+   "lon": -9.135,
+   "tags": {
+    "name": "Mercado de Arroios",
+    "amenity": "marketplace"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1093,
+   "lat": 38.719,
+   "lon": -9.152,
+   "tags": {
+    "name": "Gleba Padaria",
+    "shop": "bakery"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1094,
+   "lat": 38.7153,
+   "lon": -9.1412,
+   "tags": {
+    "name": "Hotel Avenida Palace",
+    "tourism": "hotel",
+    "stars": "5",
+    "website": "https://example.com/avenida"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1095,
+   "lat": 38.7118,
+   "lon": -9.1419,
+   "tags": {
+    "name": "Lisboa Pessoa Hotel",
+    "tourism": "hotel",
+    "stars": "4",
+    "parking": "yes"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1096,
+   "lat": 38.7105,
+   "lon": -9.131,
+   "tags": {
+    "name": "Memmo Alfama",
+    "tourism": "hotel",
+    "stars": "4",
+    "website": "https://example.com/memmo"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1097,
+   "lat": 38.709,
+   "lon": -9.149,
+   "tags": {
+    "name": "Casa do Bairro",
+    "tourism": "guest_house"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1098,
+   "lat": 38.714,
+   "lon": -9.1408,
+   "tags": {
+    "name": "Lisbon Destination Hostel",
+    "tourism": "hostel"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1099,
+   "lat": 38.7158,
+   "lon": -9.1418,
+   "tags": {
+    "name": "Goodmorning Hostel",
+    "tourism": "hostel"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1100,
+   "lat": 38.7103,
+   "lon": -9.1375,
+   "tags": {
+    "name": "Baixa House Apartments",
+    "tourism": "apartment"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1101,
+   "lat": 38.712,
+   "lon": -9.1285,
+   "tags": {
+    "name": "Alfama Lofts",
+    "tourism": "apartment",
+    "parking": "yes"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1102,
+   "lat": 38.694,
+   "lon": -9.204,
+   "tags": {
+    "name": "Altis Belém Hotel",
+    "tourism": "hotel",
+    "stars": "5",
+    "parking": "yes"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1103,
+   "lat": 38.6983,
+   "lon": -9.2045,
+   "tags": {
+    "name": "Hotel Jerónimos 8",
+    "tourism": "hotel",
+    "stars": "4"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1104,
+   "lat": 38.7125,
+   "lon": -9.1318,
+   "tags": {
+    "name": "Santiago de Alfama",
+    "tourism": "hotel",
+    "stars": "5"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1105,
+   "lat": 38.7155,
+   "lon": -9.1455,
+   "tags": {
+    "name": "Pensão Londres",
+    "tourism": "guest_house"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1106,
+   "lat": 38.7143,
+   "lon": -9.1594,
+   "tags": {
+    "name": "Jardim da Estrela",
+    "leisure": "park",
+    "wikidata": "Q1"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1107,
+   "lat": 38.7283,
+   "lon": -9.1527,
+   "tags": {
+    "name": "Eduardo VII Park",
+    "leisure": "park",
+    "wikidata": "Q2",
+    "wikipedia": "en:Eduardo VII Park"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1108,
+   "lat": 38.7366,
+   "lon": -9.154,
+   "tags": {
+    "name": "Gulbenkian Garden",
+    "leisure": "garden",
+    "wikidata": "Q3"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1109,
+   "lat": 38.718,
+   "lon": -9.149,
+   "tags": {
+    "name": "Jardim Botânico",
+    "leisure": "garden",
+    "wikidata": "Q4"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1110,
+   "lat": 38.729,
+   "lon": -9.189,
+   "tags": {
+    "name": "Monsanto Forest Park",
+    "leisure": "park",
+    "wikidata": "Q5"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1111,
+   "lat": 38.787,
+   "lon": -9.39,
+   "tags": {
+    "name": "Sintra-Cascais Natural Park",
+    "boundary": "protected_area",
+    "protect_class": "5",
+    "wikidata": "Q6",
+    "website": "https://example.com/sintra"
+   }
+  },
+  {
+   "type": "node",
+   "id": 1112,
+   "lat": 38.49,
+   "lon": -8.98,
+   "tags": {
+    "name": "Arrábida Natural Park",
+    "boundary": "protected_area",
+    "protect_class": "5",
+    "wikidata": "Q7"
+   }
+  }
+ ]
+}

@@ -1,26 +1,20 @@
-import { useCallback, useEffect, useState } from 'react'
-import type { Itinerary, TripRequest } from './types'
-import { geocodeDestination } from './api/geocode'
-import { fetchPlaces } from './api/places'
-import { fetchTripWeather } from './api/weather'
-import { fetchCityInfo } from './api/cityInfo'
-import { buildItinerary } from './planner/planner'
-import { loadTrips, saveTrip, deleteTrip } from './offline/storage'
-import TripForm from './components/TripForm'
-import ItineraryView from './components/ItineraryView'
-import SavedTrips from './components/SavedTrips'
+import { useEffect, useMemo, useState } from 'react'
+import type { Destination, Trip, TripRequest } from './types'
+import OptionCards from './components/OptionCards'
+import PlanView from './components/PlanView'
+import SavedDrawer from './components/SavedDrawer'
+import SearchBar from './components/SearchBar/SearchBar'
+import { placeLine } from './components/SearchBar/DestinationField'
+import { todayISO } from './components/SearchBar/dateRange'
+import Skeleton from './components/Skeleton'
+import { placeTitle, requestLine } from './format'
+import { findSaved } from './offline/storage'
+import { paramsToRequest, requestToParams } from './share'
+import { BookmarkIcon, LinkIcon } from './ui/icons'
+import { usePlanTrip } from './usePlanTrip'
 
-type Status =
-  | { phase: 'idle' }
-  | { phase: 'loading'; step: string }
-  | { phase: 'error'; message: string }
-
-export default function App() {
-  const [status, setStatus] = useState<Status>({ phase: 'idle' })
-  const [itinerary, setItinerary] = useState<Itinerary | null>(null)
-  const [trips, setTrips] = useState<Itinerary[]>(() => loadTrips())
+function useOnline(): boolean {
   const [online, setOnline] = useState(navigator.onLine)
-
   useEffect(() => {
     const up = () => setOnline(true)
     const down = () => setOnline(false)
@@ -31,101 +25,193 @@ export default function App() {
       window.removeEventListener('offline', down)
     }
   }, [])
+  return online
+}
 
-  const generate = useCallback(async (request: TripRequest) => {
-    setItinerary(null)
-    try {
-      setStatus({ phase: 'loading', step: `Finding ${request.destinationQuery}…` })
-      const destination = await geocodeDestination(request.destinationQuery)
-
-      setStatus({
-        phase: 'loading',
-        step: `Gathering sights, food & weather for ${destination.name}…`,
-      })
-      const [pool, weatherByDate, cityInfo] = await Promise.all([
-        fetchPlaces(destination),
-        fetchTripWeather(destination, request.startDate, request.days),
-        fetchCityInfo(destination),
-      ])
-
-      if (pool.sights.length === 0 && pool.parks.length === 0) {
-        throw new Error(
-          `Not enough map data found around "${destination.name}". Try the nearest larger city.`,
-        )
-      }
-
-      setStatus({ phase: 'loading', step: 'Optimizing your days…' })
-      const plan = buildItinerary({ request, destination, pool, weatherByDate, cityInfo })
-
-      setItinerary(plan)
-      setTrips(saveTrip(plan)) // auto-saved → readable offline later
-      setStatus({ phase: 'idle' })
-    } catch (err) {
-      setStatus({
-        phase: 'error',
-        message: err instanceof Error ? err.message : 'Something went wrong. Please try again.',
-      })
-    }
-  }, [])
-
-  const openTrip = useCallback((trip: Itinerary) => {
-    setItinerary(trip)
-    setStatus({ phase: 'idle' })
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }, [])
-
-  const removeTrip = useCallback(
-    (id: string) => {
-      setTrips(deleteTrip(id))
-      if (itinerary?.id === id) setItinerary(null)
-    },
-    [itinerary],
+export default function App() {
+  const { state, trips, plan, open, remove, reset } = usePlanTrip()
+  const online = useOnline()
+  const fromUrl = useMemo(
+    () => paramsToRequest(new URLSearchParams(location.search), todayISO()),
+    [],
   )
+  const [initial, setInitial] = useState<Partial<TripRequest>>(fromUrl.request)
+  /** Which option is open, and for which trip — never reused across trips. */
+  const [selection, setSelection] = useState<{ tripId: string; index: number } | null>(null)
+  const [drawer, setDrawer] = useState(false)
+  const [toast, setToast] = useState('')
+
+  // A complete, valid share link plans itself; anything else only prefills.
+  // If that trip is already saved here, open it — no lookups, works offline.
+  useEffect(() => {
+    if (!fromUrl.runnable) return
+    const saved = findSaved(trips, fromUrl.request)
+    if (saved) open(saved)
+    else void plan(fromUrl.request as TripRequest)
+    // Runs once for the address the page was opened with.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    if (!toast) return
+    const timer = setTimeout(() => setToast(''), 2500)
+    return () => clearTimeout(timer)
+  }, [toast])
+
+  const trip = state.phase === 'ready' ? state.trip : null
+  const tripId = trip?.id
+  useEffect(() => {
+    window.scrollTo({ top: 0 })
+  }, [tripId])
+  const optionIndex =
+    trip && selection?.tripId === trip.id && selection.index < trip.options.length
+      ? selection.index
+      : null
+  const setOptionIndex = (index: number | null) =>
+    setSelection(trip && index !== null ? { tripId: trip.id, index } : null)
+
+  const submit = (request: TripRequest, picked?: Destination) => void plan(request, picked)
+
+  const openSaved = (t: Trip) => {
+    setInitial({ ...t.request })
+    open(t)
+  }
+
+  const copyLink = async (t: Trip) => {
+    const url = `${location.origin}${location.pathname}?${requestToParams(t.request)}`
+    try {
+      await navigator.clipboard.writeText(url)
+      setToast('Link copied')
+    } catch {
+      setToast('Copy the address from your browser to share this trip')
+    }
+  }
+
+  const home = state.phase === 'idle'
 
   return (
-    <div className="app">
-      <header className="app-header">
-        <div className="brand">
-          <span className="brand-mark" aria-hidden>
-            ✈
-          </span>
-          <div>
-            <h1>Wayfarer</h1>
-            <p className="tagline">Smart itineraries, weather-aware, offline-ready</p>
-          </div>
+    <div className={home ? 'app is-home' : 'app'}>
+      <header className="top">
+        <a
+          className="brand"
+          href={location.pathname}
+          onClick={(e) => {
+            e.preventDefault()
+            setInitial({})
+            reset()
+          }}
+        >
+          Wayfarer
+        </a>
+        <div className="top-actions">
+          {!online && <span className="pill">Offline</span>}
+          <button
+            className="text-button with-icon"
+            data-testid="saved-open"
+            onClick={() => setDrawer(true)}
+          >
+            <BookmarkIcon size={16} />
+            Saved{trips.length > 0 ? ` (${trips.length})` : ''}
+          </button>
         </div>
-        {!online && <span className="offline-pill">Offline — showing saved data</span>}
       </header>
 
       <main>
-        <TripForm onSubmit={generate} busy={status.phase === 'loading'} />
-
-        {status.phase === 'loading' && (
-          <div className="status-card" role="status">
-            <div className="spinner" aria-hidden />
-            <p>{status.step}</p>
-          </div>
-        )}
-        {status.phase === 'error' && (
-          <div className="status-card error" role="alert">
-            <p>{status.message}</p>
+        {home && (
+          <div className="hero">
+            <h1>Where to next?</h1>
+            <p className="lede">
+              Say where, when, who and how. Get three complete plans to compare — sights, local
+              food and places to stay, timed around the weather.
+            </p>
           </div>
         )}
 
-        {itinerary && <ItineraryView itinerary={itinerary} />}
+        <SearchBar initial={initial} busy={state.phase === 'loading'} onSubmit={submit} />
 
-        {!itinerary && status.phase === 'idle' && (
-          <SavedTrips trips={trips} onOpen={openTrip} onDelete={removeTrip} />
+        {state.phase === 'loading' && <Skeleton step={state.step} />}
+
+        {state.phase === 'error' && (
+          <div className="notice notice-error" role="alert" data-testid="error-card">
+            <p>{state.message}</p>
+            <button className="button" onClick={state.retry}>
+              Try again
+            </button>
+          </div>
+        )}
+
+        {state.phase === 'ready' && trip && (
+          <section className="trip" aria-label={`Trip to ${trip.destination.name}`}>
+            <header className="trip-head">
+              <div>
+                <h2 className="trip-title">{placeTitle(trip.destination)}</h2>
+                <p className="trip-meta">{requestLine(trip.request)}</p>
+              </div>
+              <button className="button with-icon" onClick={() => void copyLink(trip)}>
+                <LinkIcon size={16} />
+                Copy link
+              </button>
+            </header>
+
+            {state.alternatives.length > 0 && (
+              <p className="notice">
+                Showing {trip.destination.name}
+                {placeLine(trip.destination) ? `, ${placeLine(trip.destination)}` : ''}. Did you
+                mean{' '}
+                {state.alternatives.slice(0, 3).map((d, i) => (
+                  <span key={`${d.lat},${d.lon}`}>
+                    {i > 0 && ', '}
+                    <button className="link-button" onClick={() => void plan(trip.request, d)}>
+                      {d.name}, {placeLine(d)}
+                    </button>
+                  </span>
+                ))}
+                ?
+              </p>
+            )}
+            {trip.notice && <p className="notice">{trip.notice}</p>}
+            {trip.forecastPartial && (
+              <p className="notice">
+                Forecasts only reach 16 days ahead. Plan again closer to the trip and the days will
+                be arranged around the weather.
+              </p>
+            )}
+
+            {optionIndex === null ? (
+              <OptionCards trip={trip} onOpen={setOptionIndex} />
+            ) : (
+              <PlanView
+                trip={trip}
+                index={optionIndex}
+                onSwitch={setOptionIndex}
+                onBack={() => setOptionIndex(null)}
+              />
+            )}
+          </section>
         )}
       </main>
 
-      <footer className="app-footer">
+      <footer className="foot">
         <p>
-          Maps & places © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>{' '}
-          contributors · Weather by <a href="https://open-meteo.com/">Open-Meteo</a> · City
-          summaries from Wikipedia
+          Places and maps from{' '}
+          <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors via{' '}
+          <a href="https://openfreemap.org/">OpenFreeMap</a>. Weather by{' '}
+          <a href="https://open-meteo.com/">Open-Meteo</a>. City summaries from Wikipedia. Travel
+          times are estimates.
         </p>
       </footer>
+
+      {drawer && (
+        <SavedDrawer
+          trips={trips}
+          onOpen={openSaved}
+          onDelete={remove}
+          onClose={() => setDrawer(false)}
+        />
+      )}
+      <div className="toast" role="status" aria-live="polite">
+        {toast && <span>{toast}</span>}
+      </div>
     </div>
   )
 }

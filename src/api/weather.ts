@@ -1,5 +1,6 @@
 import type { DayWeather, Destination } from '../types'
-import { addDaysISO } from '../types'
+import { addDaysISO, localISODate } from '../types'
+import { fetchJson, isAbort } from './http'
 
 /** Open-Meteo serves reliable daily forecasts up to 16 days ahead. */
 export const FORECAST_HORIZON_DAYS = 16
@@ -20,13 +21,15 @@ interface DailyResponse {
 /**
  * Fetch the daily forecast for the trip window. Days beyond the 16-day
  * horizon come back absent — the planner and UI handle that gracefully.
+ * Best-effort: a failed forecast yields an empty map, never a failed plan.
  */
 export async function fetchTripWeather(
   dest: Destination,
   startDate: string,
   days: number,
+  signal?: AbortSignal,
 ): Promise<Map<string, DayWeather>> {
-  const todayLocal = new Date().toISOString().slice(0, 10)
+  const todayLocal = localISODate()
   const horizonEnd = addDaysISO(todayLocal, FORECAST_HORIZON_DAYS - 1)
   const endDate = addDaysISO(startDate, days - 1)
 
@@ -52,11 +55,15 @@ export async function fetchTripWeather(
   url.searchParams.set('start_date', startDate < todayLocal ? todayLocal : startDate)
   url.searchParams.set('end_date', endDate > horizonEnd ? horizonEnd : endDate)
 
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`Weather fetch failed (HTTP ${res.status})`)
-  const data = (await res.json()) as DailyResponse
+  let data: DailyResponse
+  try {
+    data = await fetchJson<DailyResponse>(url, { timeoutMs: 8000, retries: 1, signal })
+  } catch (err) {
+    if (isAbort(err)) throw err
+    return byDate
+  }
   const d = data.daily
-  if (!d) return byDate
+  if (!d?.time) return byDate
 
   d.time.forEach((date, i) => {
     byDate.set(date, {
