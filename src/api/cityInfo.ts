@@ -6,23 +6,25 @@ interface WikiSummary {
   content_urls?: { desktop?: { page?: string } }
 }
 
-interface RestCountry {
-  currencies?: Record<string, { name?: string; symbol?: string }>
-  languages?: Record<string, string>
-  car?: { side?: string }
-}
+/** ISO country code → [currencies, languages], bundled from the
+ * world-countries dataset (ODbL). REST Countries now needs an API key. */
+type CountryFacts = Record<string, [string, string]>
+
+let facts: Promise<CountryFacts> | null = null
+const loadFacts = () =>
+  (facts ??= import('./countryFacts.json').then((m) => m.default as unknown as CountryFacts))
 
 /**
  * City overview ("what makes it unique") from Wikipedia plus practical
- * country facts (currency, languages, driving side) from REST Countries.
- * Both are best-effort — the itinerary still works if either fails.
+ * country facts (currency, languages) from bundled data. The Wikipedia part
+ * is best-effort — the itinerary still works without it.
  */
 export async function fetchCityInfo(dest: Destination, signal?: AbortSignal): Promise<CityInfo> {
   const info: CityInfo = { timezone: dest.timezone }
 
   const [wiki, country] = await Promise.allSettled([
     fetchWikiSummary(dest, signal),
-    fetchCountryFacts(dest.countryCode, signal),
+    loadFacts().then((all) => all[dest.countryCode.toUpperCase()] ?? null),
   ])
 
   if (wiki.status === 'fulfilled' && wiki.value) {
@@ -30,13 +32,9 @@ export async function fetchCityInfo(dest: Destination, signal?: AbortSignal): Pr
     info.wikipediaUrl = wiki.value.content_urls?.desktop?.page
   }
   if (country.status === 'fulfilled' && country.value) {
-    const c = country.value
-    info.currency = Object.values(c.currencies ?? {})
-      .map((cur) => (cur.symbol ? `${cur.name} (${cur.symbol})` : cur.name))
-      .filter(Boolean)
-      .join(', ')
-    info.languages = Object.values(c.languages ?? {}).join(', ')
-    info.drivingSide = c.car?.side
+    const [currency, languages] = country.value
+    if (currency) info.currency = currency
+    if (languages) info.languages = languages
   }
   return info
 }
@@ -58,16 +56,4 @@ async function fetchWikiSummary(
     }
   }
   return null
-}
-
-async function fetchCountryFacts(
-  code: string,
-  signal?: AbortSignal,
-): Promise<RestCountry | null> {
-  if (!code) return null
-  const data = await fetchJson<RestCountry | RestCountry[]>(
-    `https://restcountries.com/v3.1/alpha/${code}?fields=currencies,languages,car`,
-    { timeoutMs: 8000, retries: 0, signal },
-  )
-  return Array.isArray(data) ? (data[0] ?? null) : data
 }

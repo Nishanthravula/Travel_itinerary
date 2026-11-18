@@ -10,7 +10,6 @@ export default function CityOverview({ trip }: { trip: Trip }) {
     ['Timezone', cityInfo.timezone],
     ['Currency', cityInfo.currency],
     ['Languages', cityInfo.languages],
-    ['Drives on the', cityInfo.drivingSide],
     ['Population', destination.population ? destination.population.toLocaleString() : undefined],
   ]
   const shown = facts.filter(([, v]) => v)

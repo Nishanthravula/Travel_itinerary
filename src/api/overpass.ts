@@ -10,6 +10,7 @@ import type {
 import { haversineKm } from '../types'
 import { TRANSPORT } from '../planner/transport'
 import { HttpError, fetchJson, isAbort } from './http'
+import { fetchWikipediaPlaces } from './wikipedia'
 import type { PlacesProvider } from './providers'
 
 /** Public Overpass instances, tried in order. All are shared, free services. */
@@ -28,6 +29,8 @@ const LOCAL_RADIUS_KM = 12
 const PARKS_RADIUS_KM = 60
 /** Server-side limit per query, seconds. The client waits a little longer. */
 const QUERY_TIMEOUT_S = 25
+/** How long the browser waits for one server before trying the next. */
+const CLIENT_TIMEOUT_MS = 15_000
 
 export interface OverpassElement {
   type: 'node' | 'way' | 'relation'
@@ -272,8 +275,10 @@ async function fetchPart(
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: `data=${encodeURIComponent(query)}`,
     },
-    timeoutMs: (QUERY_TIMEOUT_S + 5) * 1000,
-    retries: OVERPASS_MIRRORS.length - 1,
+    timeoutMs: CLIENT_TIMEOUT_MS,
+    // Two servers at most: the public ones ban clients that keep retrying,
+    // and Wikipedia stands in for sights and parks if both fail.
+    retries: 1,
     signal,
     // Overpass reports its own timeout as a 200 with partial results.
     // A partial answer must not be planned from, or cached.
@@ -299,29 +304,42 @@ const EMPTY: PlacePool = {
 export const overpassProvider: PlacesProvider = {
   async fetchPool(dest, mode, signal) {
     const queries = buildQueries(dest, mode)
+    // Wikipedia is asked alongside, so a fallback is ready the moment the
+    // OpenStreetMap servers fail — it is one fast request.
+    const wiki = fetchWikipediaPlaces(dest, mode, signal).catch(() => null)
     const results = await Promise.allSettled(
       PARTS.map((part, i) => fetchPart(queries[part], i, dest, signal)),
     )
-    const get = (part: PoolPart) => results[PARTS.indexOf(part)]
-
-    const sights = get('sights')
-    if (sights.status === 'rejected') throw sights.reason
     const aborted = results.find((r) => r.status === 'rejected' && isAbort(r.reason))
     if (aborted) throw (aborted as PromiseRejectedResult).reason
-
+    const get = (part: PoolPart) => results[PARTS.indexOf(part)]
     const value = (part: PoolPart) => {
       const r = get(part)
-      return r.status === 'fulfilled' ? r.value : EMPTY
+      return r.status === 'fulfilled' ? r.value : null
     }
+
+    const fromWiki = await wiki
+    const sights = value('sights')?.sights ?? (fromWiki?.sights.length ? fromWiki.sights : null)
+    if (!sights) throw (get('sights') as PromiseRejectedResult).reason
+
+    const parks = value('parks') ?? (fromWiki?.parks.length ? { ...EMPTY, parks: fromWiki.parks } : null)
+    const stays = value('stays')?.stays ?? (fromWiki?.stays.length ? fromWiki.stays : null)
+    const food = value('food')
+
+    const missing: PoolPart[] = []
+    if (!food) missing.push('food')
+    if (!stays) missing.push('stays')
+    if (!parks) missing.push('parks')
+
     return {
-      sights: sights.value.sights,
-      restaurants: value('food').restaurants,
-      cafes: value('food').cafes,
-      markets: value('food').markets,
-      stays: value('stays').stays,
-      parks: value('parks').parks,
-      nationalParks: value('parks').nationalParks,
-      missing: PARTS.filter((part) => get(part).status === 'rejected'),
+      sights,
+      restaurants: food?.restaurants ?? [],
+      cafes: food?.cafes ?? [],
+      markets: food?.markets ?? [],
+      stays: stays ?? [],
+      parks: parks?.parks ?? [],
+      nationalParks: parks?.nationalParks ?? [],
+      missing,
     }
   },
 }

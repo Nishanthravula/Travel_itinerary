@@ -61,8 +61,8 @@ keyless data; one optional server function adds Google Places.
 | Place search, timezone | Open-Meteo Geocoding |
 | 16-day forecast | Open-Meteo Forecast |
 | Sights, food, stays, parks | OpenStreetMap via Overpass (three public mirrors, tried in turn) |
-| City summary | Wikipedia REST |
-| Currency, languages, driving side | REST Countries |
+| City summary; fallback sights and parks | Wikipedia (REST summary, geographic search) |
+| Currency, languages | bundled from the world-countries dataset (ODbL) |
 | Map | MapLibre GL + OpenFreeMap vector tiles |
 | Optional: places with ratings | Google Places API (New) via `netlify/functions/places.mts` |
 
@@ -83,9 +83,12 @@ src/
 └── share.ts     request ⇄ URL
 ```
 
-Reliability: every request has a timeout and retries; places are fetched as
-four small queries (sights, food, stays, parks) spread across mirrors, and a
-plan still builds — with a note — if food, stays or parks cannot be loaded; a fetched city is cached for a week so re-planning
+Reliability: every request has a timeout; places are fetched as four small
+queries (sights, food, stays, parks), each tried on at most two public
+servers. If the OpenStreetMap servers cannot supply sights or parks,
+Wikipedia's geographic search stands in (the main public Overpass server
+has rejected browser traffic with HTTP 406 since mid-2026). A plan still
+builds — with a note — if food or stays cannot be loaded; a fetched city is cached for a week so re-planning
 does not hit the shared service again; weather and city facts are optional
 and never fail a plan.
 

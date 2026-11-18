@@ -80,7 +80,7 @@ test('explains itself and offers a retry when the places service is down', async
   await expect(error).toBeVisible({ timeout: 20_000 })
   await expect(error).toContainText(/places service/)
   await expect(error.getByRole('button', { name: 'Try again' })).toBeVisible()
-  expect(calls.overpass).toBe(12) // four parts, one attempt per mirror each
+  expect(calls.overpass).toBe(8) // four parts, two servers each at most
 })
 
 test('says so when the destination cannot be found', async ({ page, context }) => {
@@ -248,4 +248,18 @@ test('falls back to the free source when Google is configured but unavailable', 
   await expect(page.getByTestId('option-card').first()).toBeVisible()
   await expect(page.getByTestId('google-attribution')).toHaveCount(0)
   expect(calls.overpass).toBe(4)
+})
+
+test('when the free places servers fail, sights come from Wikipedia and the trip still plans', async ({
+  page,
+  context,
+}) => {
+  await mockApis(context, { placesDown: true, wikiGeo: true })
+  await page.goto(`/?q=Lisbon&from=${inDays(3)}&to=${inDays(4)}&n=2&by=transit`)
+  await expect(page.getByTestId('option-card').first()).toBeVisible({ timeout: 25_000 })
+  await expect(page.getByTestId('error-card')).toHaveCount(0)
+  await expect(page.getByText(/Restaurants and cafés could not be loaded/)).toBeVisible()
+  await page.getByTestId('option-card').first().getByRole('button', { name: /View plan/ }).click()
+  await expect(page.getByTestId('stop').filter({ hasText: /Belém Tower|Jerónimos|São Jorge|Gulbenkian|Cathedral/ }).first()).toBeVisible()
+  await expect(page.getByTestId('stop').filter({ hasText: /Alfama|railway station/ })).toHaveCount(0)
 })

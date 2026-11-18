@@ -1,0 +1,202 @@
+{
+ "query": {
+  "pages": [
+   {
+    "pageid": 1,
+    "ns": 0,
+    "title": "Belém Tower",
+    "description": "Fortified tower in Lisbon, Portugal",
+    "length": 62000,
+    "coordinates": [
+     {
+      "lat": 38.6916,
+      "lon": -9.216,
+      "primary": true
+     }
+    ]
+   },
+   {
+    "pageid": 2,
+    "ns": 0,
+    "title": "Jerónimos Monastery",
+    "description": "Monastery in Lisbon, Portugal",
+    "length": 48000,
+    "coordinates": [
+     {
+      "lat": 38.6979,
+      "lon": -9.2068,
+      "primary": true
+     }
+    ]
+   },
+   {
+    "pageid": 3,
+    "ns": 0,
+    "title": "São Jorge Castle",
+    "description": "Castle in Lisbon, Portugal",
+    "length": 30000,
+    "coordinates": [
+     {
+      "lat": 38.7139,
+      "lon": -9.1335,
+      "primary": true
+     }
+    ]
+   },
+   {
+    "pageid": 4,
+    "ns": 0,
+    "title": "Calouste Gulbenkian Museum",
+    "description": "Art museum in Lisbon, Portugal",
+    "length": 25000,
+    "coordinates": [
+     {
+      "lat": 38.7374,
+      "lon": -9.1546,
+      "primary": true
+     }
+    ]
+   },
+   {
+    "pageid": 5,
+    "ns": 0,
+    "title": "Lisbon Cathedral",
+    "description": "Cathedral in Lisbon, Portugal",
+    "length": 28000,
+    "coordinates": [
+     {
+      "lat": 38.7098,
+      "lon": -9.1326,
+      "primary": true
+     }
+    ]
+   },
+   {
+    "pageid": 6,
+    "ns": 0,
+    "title": "Praça do Comércio",
+    "description": "Square in Lisbon, Portugal",
+    "length": 22000,
+    "coordinates": [
+     {
+      "lat": 38.7075,
+      "lon": -9.1364,
+      "primary": true
+     }
+    ]
+   },
+   {
+    "pageid": 7,
+    "ns": 0,
+    "title": "Santa Justa Lift",
+    "description": "Elevator and landmark in Lisbon",
+    "length": 15000,
+    "coordinates": [
+     {
+      "lat": 38.7121,
+      "lon": -9.1394,
+      "primary": true
+     }
+    ]
+   },
+   {
+    "pageid": 8,
+    "ns": 0,
+    "title": "National Tile Museum",
+    "description": "Museum in Lisbon, Portugal",
+    "length": 14000,
+    "coordinates": [
+     {
+      "lat": 38.7245,
+      "lon": -9.1136,
+      "primary": true
+     }
+    ]
+   },
+   {
+    "pageid": 9,
+    "ns": 0,
+    "title": "Oceanário de Lisboa",
+    "description": "Public aquarium in Lisbon",
+    "length": 20000,
+    "coordinates": [
+     {
+      "lat": 38.7633,
+      "lon": -9.0937,
+      "primary": true
+     }
+    ]
+   },
+   {
+    "pageid": 10,
+    "ns": 0,
+    "title": "Miradouro da Senhora do Monte",
+    "description": "Scenic viewpoint in Lisbon",
+    "length": 6000,
+    "coordinates": [
+     {
+      "lat": 38.719,
+      "lon": -9.1325,
+      "primary": true
+     }
+    ]
+   },
+   {
+    "pageid": 11,
+    "ns": 0,
+    "title": "Eduardo VII Park",
+    "description": "Public park in Lisbon, Portugal",
+    "length": 12000,
+    "coordinates": [
+     {
+      "lat": 38.7283,
+      "lon": -9.1527,
+      "primary": true
+     }
+    ]
+   },
+   {
+    "pageid": 12,
+    "ns": 0,
+    "title": "Avenida Palace",
+    "description": "Hotel in Lisbon, Portugal",
+    "length": 9000,
+    "coordinates": [
+     {
+      "lat": 38.7153,
+      "lon": -9.1412,
+      "primary": true
+     }
+    ]
+   },
+   {
+    "pageid": 13,
+    "ns": 0,
+    "title": "Alfama",
+    "description": "Neighbourhood of Lisbon",
+    "length": 30000,
+    "coordinates": [
+     {
+      "lat": 38.7117,
+      "lon": -9.13,
+      "primary": true
+     }
+    ]
+   },
+   {
+    "pageid": 14,
+    "ns": 0,
+    "title": "Rossio railway station",
+    "description": "Railway station in Lisbon",
+    "length": 15000,
+    "coordinates": [
+     {
+      "lat": 38.7144,
+      "lon": -9.1408,
+      "primary": true
+     }
+    ]
+   }
+  ]
+ }
+}
