@@ -15,8 +15,16 @@ describe('best-effort sources never fail a plan', () => {
     const tomorrow = addDaysISO(new Date().toISOString().slice(0, 10), 1)
     expect((await fetchTripWeather(dest, tomorrow, 3)).size).toBe(0)
   })
-  it('returns just the timezone when city facts are unavailable', async () => {
+  it('still gives currency and languages, from bundled data, when Wikipedia is down', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('nope', { status: 404 })))
-    expect(await fetchCityInfo(dest)).toEqual({ timezone: 'Europe/Lisbon' })
+    expect(await fetchCityInfo(dest)).toEqual({
+      timezone: 'Europe/Lisbon', currency: 'Euro (€)', languages: 'Portuguese',
+    })
+  })
+  it('makes no request to the retired REST Countries service', async () => {
+    const fetchMock = vi.fn(async (url: unknown) => new Response(String(url) && 'nope', { status: 404 }))
+    vi.stubGlobal('fetch', fetchMock)
+    await fetchCityInfo(dest)
+    expect(fetchMock.mock.calls.map((c) => String(c[0])).join(' ')).not.toContain('restcountries')
   })
 })

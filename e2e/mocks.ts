@@ -18,6 +18,8 @@ export interface MockOptions {
   placesDown?: boolean
   /** Only the restaurants-and-cafés query fails, on every mirror. */
   foodDown?: boolean
+  /** Wikipedia's geographic search returns Lisbon landmarks. */
+  wikiGeo?: boolean
   /** The site's Google places function is configured and answers. */
   google?: boolean
   /** The geocoder finds nothing. */
@@ -104,8 +106,13 @@ export async function mockApis(context: BrowserContext, opts: MockOptions = {}) 
     )
   })
 
-  await context.route('https://en.wikipedia.org/**', (route) => json(route, fixture('wiki')))
-  await context.route('https://restcountries.com/**', (route) => json(route, fixture('country')))
+  await context.route('https://en.wikipedia.org/**', (route) => {
+    // Geographic search (the sights fallback) vs the city summary.
+    if (route.request().url().includes('/w/api.php')) {
+      return json(route, opts.wikiGeo ? fixture('wiki-geo') : '{}')
+    }
+    return json(route, fixture('wiki'))
+  })
 
   // An empty but valid map style: the map initialises without any tiles.
   await context.route('https://tiles.openfreemap.org/**', (route) =>

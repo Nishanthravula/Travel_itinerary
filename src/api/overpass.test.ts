@@ -171,14 +171,25 @@ describe('overpassProvider', () => {
   }
   const ok = (part: Part) => new Response(JSON.stringify({ elements: answers[part] }), { status: 200 })
   const down = () => new Response('Gateway Timeout', { status: 504 })
+  const defaultWiki = () =>
+    Response.json({
+      query: {
+        pages: {
+          1: { pageid: 1, title: 'Statue of Liberty', description: 'Colossal sculpture in New York Harbor', length: 90000, coordinates: [{ lat: 35.0, lon: 135.7 }] },
+          2: { pageid: 2, title: 'Maruyama Park', description: 'Public park in Kyoto', length: 9000, coordinates: [{ lat: 35.0, lon: 135.78 }] },
+        },
+      },
+    })
 
   /** Run a fetchPool call to completion under fake timers. */
+  let wiki = defaultWiki
   async function run(respond: (part: Part, url: string, nth: number) => Response) {
     vi.useFakeTimers()
     const seen: Record<Part, string[]> = { sights: [], food: [], stays: [], parks: [] }
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: unknown, init: RequestInit) => {
+        if (String(url).includes('wikipedia.org')) return wiki()
         const part = partOf(init)
         seen[part].push(String(url))
         return respond(part, String(url), seen[part].length)
@@ -206,7 +217,7 @@ describe('overpassProvider', () => {
   it('spreads the parts across mirrors instead of queueing on one server', async () => {
     const { seen } = await run((part) => ok(part))
     const firstHosts = new Set(Object.values(seen).map((u) => u[0]))
-    expect(firstHosts.size).toBe(OVERPASS_MIRRORS.length)
+    expect(firstHosts.size).toBe(Math.min(OVERPASS_MIRRORS.length, 4))
   })
 
   it('retries a failed part on the next mirror', async () => {
@@ -218,14 +229,35 @@ describe('overpassProvider', () => {
 
   it('still returns a pool, marked incomplete, when food cannot be loaded', async () => {
     const { pool, seen } = await run((part) => (part === 'food' ? down() : ok(part)))
-    expect(seen.food).toHaveLength(OVERPASS_MIRRORS.length)
+    expect(seen.food.length).toBeLessThanOrEqual(2)
     expect(pool!.sights).toHaveLength(1)
     expect(pool!.restaurants).toEqual([])
     expect(pool!.missing).toEqual(['food'])
   })
 
-  it('fails when the sights themselves cannot be loaded', async () => {
+  it('uses Wikipedia for sights when the places servers cannot supply them', async () => {
     const { pool, error } = await run((part) => (part === 'sights' ? down() : ok(part)))
+    expect(error).toBeUndefined()
+    expect(pool!.sights.map((p) => p.name)).toEqual(['Statue of Liberty'])
+    expect(pool!.restaurants.map((p) => p.name)).toEqual(['R']) // the rest still from OpenStreetMap
+    expect(pool!.missing).toEqual([])
+  })
+
+  it('gives up on a slow places server quickly rather than after a minute and a half', async () => {
+    const { seen } = await run((part) => (part === 'sights' ? down() : ok(part)))
+    expect(seen.sights.length).toBeLessThanOrEqual(2)
+  })
+
+  it('uses Wikipedia parks when the parks search fails', async () => {
+    const { pool } = await run((part) => (part === 'parks' ? down() : ok(part)))
+    expect(pool!.parks.map((p) => p.name)).toEqual(['Maruyama Park'])
+    expect(pool!.missing).toEqual([])
+  })
+
+  it('fails only when neither source has sights', async () => {
+    wiki = () => Response.json({})
+    const { pool, error } = await run((part) => (part === 'sights' ? down() : ok(part)))
+    wiki = defaultWiki
     expect(pool).toBeUndefined()
     expect(error).toMatchObject({ name: 'HttpError' })
   })
@@ -237,9 +269,10 @@ describe('overpassProvider', () => {
         ? new Response(JSON.stringify({ elements: answers.sights, remark }), { status: 200 })
         : ok(part),
     )
-    expect(pool).toBeUndefined()
-    expect(error).toMatchObject({ name: 'HttpError' })
-    expect(seen.sights).toHaveLength(OVERPASS_MIRRORS.length)
+    // The partial answer is rejected; sights then come from Wikipedia.
+    expect(error).toBeUndefined()
+    expect(pool!.sights.map((p) => p.name)).toEqual(['Statue of Liberty'])
+    expect(seen.sights.length).toBeGreaterThanOrEqual(1)
   })
 })
 
