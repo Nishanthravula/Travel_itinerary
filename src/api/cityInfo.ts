@@ -1,9 +1,12 @@
 import type { CityInfo, Destination } from '../types'
 import { fetchJson } from './http'
+import { heroImageUrl } from './photos'
 
 interface WikiSummary {
   extract?: string
   content_urls?: { desktop?: { page?: string } }
+  thumbnail?: { source?: string; width?: number; height?: number }
+  originalimage?: { source?: string; width?: number; height?: number }
 }
 
 /** ISO country code → [currencies, languages], bundled from the
@@ -30,6 +33,8 @@ export async function fetchCityInfo(dest: Destination, signal?: AbortSignal): Pr
   if (wiki.status === 'fulfilled' && wiki.value) {
     info.summary = wiki.value.extract
     info.wikipediaUrl = wiki.value.content_urls?.desktop?.page
+    const image = heroImageUrl(wiki.value)
+    if (image && info.wikipediaUrl) info.image = { url: image, pageUrl: info.wikipediaUrl }
   }
   if (country.status === 'fulfilled' && country.value) {
     const [currency, languages] = country.value

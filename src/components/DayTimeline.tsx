@@ -8,7 +8,10 @@ import {
 } from '../ui/icons'
 import { formatDay } from './SearchBar/dateRange'
 import WeatherBadge from './WeatherBadge'
+import DayBar from './DayBar'
+import Thumb from './Thumb'
 import { emptyDayText } from './emptyDay'
+import { directionsUrl } from './directions'
 
 const KIND: Record<PlaceKind, { Icon: ComponentType<{ size?: number }>; label: string }> = {
   attraction: { Icon: SightIcon, label: 'Sight' },
@@ -34,11 +37,16 @@ interface Props {
  */
 export default function DayTimeline({ day, transport, hasFlight = false }: Props) {
   return (
-    <section className="day" aria-label={`${day.label}, ${formatDay(day.date)}`}>
-      <header className="day-head">
-        <h3>{formatDay(day.date)}</h3>
+    // A native disclosure: each day folds away, as in a travel notebook.
+    <details className="day" open aria-label={`${day.label}, ${formatDay(day.date)}`}>
+      <summary className="day-head">
+        <span className="day-title">
+          <span className="day-label">{day.label}</span>
+          <h3>{formatDay(day.date)}</h3>
+        </span>
         <WeatherBadge weather={day.weather} />
-      </header>
+      </summary>
+      <DayBar day={day} />
 
       {day.notes.map((note) => (
         <p key={note} className="day-note">
@@ -56,8 +64,21 @@ export default function DayTimeline({ day, transport, hasFlight = false }: Props
               <li key={`${stop.place.id}-${stop.startMin}`} className="route-item">
                 {stop.travelFromPrevMin !== undefined && stop.travelFromPrevMin > 0 && (
                   <p className="hop" data-testid="hop">
-                    ≈ {formatDuration(stop.travelFromPrevMin)}{' '}
-                    {TRANSPORT[stop.travelBy ?? transport].verb}
+                    <span>
+                      ≈ {formatDuration(stop.travelFromPrevMin)}{' '}
+                      {TRANSPORT[stop.travelBy ?? transport].verb}
+                    </span>
+                    <a
+                      href={directionsUrl(
+                        { ...day.stops[i - 1].place },
+                        { ...stop.place },
+                        stop.travelBy ?? transport,
+                      )}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Directions
+                    </a>
                   </p>
                 )}
                 <article className="stop" data-testid="stop">
@@ -66,6 +87,11 @@ export default function DayTimeline({ day, transport, hasFlight = false }: Props
                     {i + 1}
                   </span>
                   <div className="stop-body">
+                    <Thumb place={stop.place} />
+                    <div className="stop-text">
+                    <span className="stop-clock" aria-hidden>
+                      {minutesToHHMM(stop.startMin)}
+                    </span>
                     <h4 className="stop-name">
                       {(stop.place.website ?? stop.place.mapsUrl) ? (
                         <a href={stop.place.website ?? stop.place.mapsUrl} target="_blank" rel="noreferrer">
@@ -102,6 +128,7 @@ export default function DayTimeline({ day, transport, hasFlight = false }: Props
                     {stop.place.openingHours && (
                       <p className="stop-hours">Listed hours: {stop.place.openingHours}</p>
                     )}
+                    </div>
                   </div>
                 </article>
               </li>
@@ -109,6 +136,6 @@ export default function DayTimeline({ day, transport, hasFlight = false }: Props
           })}
         </ol>
       )}
-    </section>
+    </details>
   )
 }

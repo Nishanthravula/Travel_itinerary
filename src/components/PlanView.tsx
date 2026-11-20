@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import type { Trip } from '../types'
 import { ArrowLeftIcon, MapIcon } from '../ui/icons'
 import CityOverview from './CityOverview'
@@ -47,18 +47,48 @@ export default function PlanView({ trip, index, onSwitch, onBack }: Props) {
   }, [])
 
   const activeTab: Tab = tab !== 'stay' && tab >= option.days.length ? 0 : tab
+  const sections = useRef<Map<Tab, HTMLElement>>(new Map())
+  /** While a chip-click scroll is running, ignore what scrolls past. */
+  const jumping = useRef(false)
 
-  const onTabKey = (e: React.KeyboardEvent) => {
-    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return
-    const order: Tab[] = [...option.days.map((_, i) => i), 'stay']
-    const at = order.indexOf(activeTab)
-    const next = order[(at + (e.key === 'ArrowRight' ? 1 : order.length - 1)) % order.length]
-    setTab(next)
-    const list = e.currentTarget
-    requestAnimationFrame(() =>
-      list.querySelector<HTMLElement>('[aria-selected="true"]')?.focus(),
+  // The map follows the day being read, as the list scrolls.
+  useEffect(() => {
+    const seen = new Map<Element, boolean>()
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) seen.set(e.target, e.isIntersecting)
+        if (jumping.current) return
+        for (const [key, el] of sections.current) {
+          if (seen.get(el)) {
+            setTab(key)
+            return
+          }
+        }
+      },
+      // A section is "current" while it crosses the upper third of the screen.
+      { rootMargin: '-25% 0px -65% 0px' },
     )
+    for (const el of sections.current.values()) observer.observe(el)
+    return () => observer.disconnect()
+  }, [index, option.days.length])
+
+  const jumpTo = (key: Tab) => {
+    setTab(key)
+    const el = sections.current.get(key)
+    if (!el) return
+    jumping.current = true
+    el.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' })
+    window.setTimeout(() => (jumping.current = false), 700)
   }
+  const register = (key: Tab) => (el: HTMLElement | null) => {
+    if (el) sections.current.set(key, el)
+    else sections.current.delete(key)
+  }
+
+  const chips: Array<{ key: Tab; label: string; testid: string }> = [
+    ...option.days.map((d, i) => ({ key: i as Tab, label: d.label, testid: 'day-tab' })),
+    { key: 'stay', label: 'Stay', testid: 'stay-tab' },
+  ]
 
   return (
     <div className="plan" data-testid="plan-view">
@@ -87,70 +117,55 @@ export default function PlanView({ trip, index, onSwitch, onBack }: Props) {
         <h2 className="plan-title">{option.title}</h2>
         <p className="plan-tagline">{option.tagline}</p>
 
-        <div className="tabs" role="tablist" aria-label="Days" onKeyDown={onTabKey}>
-          {option.days.map((d, i) => (
+        <nav className="day-nav" aria-label="Jump to a day">
+          {chips.map(({ key, label, testid }) => (
             <button
-              key={d.date}
-              role="tab"
-              id={`tab-${i}`}
-              aria-selected={activeTab === i}
-              aria-controls="tab-panel"
-              tabIndex={activeTab === i ? 0 : -1}
-              className="tab"
-              style={{ '--day': `var(--day-${(i % 7) + 1})` } as React.CSSProperties}
-              data-testid="day-tab"
-              onClick={() => setTab(i)}
+              key={String(key)}
+              className={activeTab === key ? 'day-chip is-on' : 'day-chip'}
+              aria-current={activeTab === key ? 'true' : undefined}
+              style={
+                key === 'stay'
+                  ? undefined
+                  : ({ '--day': `var(--day-${((key as number) % 7) + 1})` } as React.CSSProperties)
+              }
+              data-testid={testid}
+              onClick={() => jumpTo(key)}
             >
-              {d.label}
+              {key !== 'stay' && <i className="day-dot" aria-hidden />}
+              {label}
             </button>
           ))}
           <button
-            role="tab"
-            id="tab-stay"
-            aria-selected={activeTab === 'stay'}
-            aria-controls="tab-panel"
-            tabIndex={activeTab === 'stay' ? 0 : -1}
-            className="tab tab-stay"
-            data-testid="stay-tab"
-            onClick={() => setTab('stay')}
+            className="day-chip map-toggle"
+            aria-expanded={mapOpen}
+            onClick={() => setMapOpen((v) => !v)}
           >
-            Stay
+            <MapIcon size={15} />
+            {mapOpen ? 'Hide map' : 'Map'}
           </button>
-        </div>
+        </nav>
 
-        <button
-          className="button map-toggle"
-          aria-expanded={mapOpen}
-          onClick={() => setMapOpen((v) => !v)}
-        >
-          <MapIcon size={16} />
-          {mapOpen ? 'Hide map' : 'Show map'}
-        </button>
-
-        <div
-          id="tab-panel"
-          role="tabpanel"
-          aria-labelledby={`tab-${activeTab}`}
-          tabIndex={0}
-          className="tab-panel"
-          style={
-            activeTab === 'stay'
-              ? undefined
-              : ({ '--day': `var(--day-${(activeTab % 7) + 1})` } as React.CSSProperties)
-          }
-        >
-          {activeTab === 'stay' ? (
+        <div className="day-list">
+          {option.days.map((d, i) => (
+            <div
+              key={d.date}
+              ref={register(i)}
+              className="day-section"
+              style={{ '--day': `var(--day-${(i % 7) + 1})` } as React.CSSProperties}
+            >
+              <DayTimeline
+                day={d}
+                transport={trip.request.transport}
+                hasFlight={
+                  (i === 0 && Boolean(trip.request.flights.arrivalTime)) ||
+                  (i === option.days.length - 1 && Boolean(trip.request.flights.departureTime))
+                }
+              />
+            </div>
+          ))}
+          <div ref={register('stay')} className="day-section">
             <StayList trip={trip} option={option} />
-          ) : (
-            <DayTimeline
-              day={option.days[activeTab]}
-              transport={trip.request.transport}
-              hasFlight={
-                (activeTab === 0 && Boolean(trip.request.flights.arrivalTime)) ||
-                (activeTab === option.days.length - 1 && Boolean(trip.request.flights.departureTime))
-              }
-            />
-          )}
+          </div>
         </div>
 
         <CityOverview trip={trip} />

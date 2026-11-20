@@ -13,6 +13,24 @@ const fixture = (name: string) =>
 const json = (route: Route, body: string, status = 200) =>
   route.fulfill({ status, contentType: 'application/json', body })
 
+const IMG = 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/ff'
+
+/** Wikipedia's answer for a photo lookup: every Lisbon sight gets one. */
+function photosFor(titles: string[]): string {
+  const osm = parseOverpass(JSON.parse(fixture('overpass')).elements, LISBON)
+  const where = new Map([...osm.sights, ...osm.parks].map((p) => [p.name, p]))
+  return JSON.stringify({
+    query: {
+      pages: titles.map((title) => {
+        const p = where.get(title)
+        return p
+          ? { title, thumbnail: { source: `${IMG}/${encodeURIComponent(title)}.jpg/480px-x.jpg` }, coordinates: [{ lat: p.lat, lon: p.lon }] }
+          : { title, missing: true }
+      }),
+    },
+  })
+}
+
 export interface MockOptions {
   /** Every Overpass mirror answers 504. */
   placesDown?: boolean
@@ -108,10 +126,25 @@ export async function mockApis(context: BrowserContext, opts: MockOptions = {}) 
 
   await context.route('https://en.wikipedia.org/**', (route) => {
     // Geographic search (the sights fallback) vs the city summary.
-    if (route.request().url().includes('/w/api.php')) {
+    const url = new URL(route.request().url())
+    if (url.pathname === '/w/api.php' && url.searchParams.get('titles')) {
+      return json(route, photosFor(url.searchParams.get('titles')!.split('|')))
+    }
+    if (url.pathname === '/w/api.php') {
       return json(route, opts.wikiGeo ? fixture('wiki-geo') : '{}')
     }
-    return json(route, fixture('wiki'))
+    const wiki = JSON.parse(fixture('wiki'))
+    return json(route, JSON.stringify({ ...wiki, originalimage: { source: `${IMG}/city/${url.pathname.split('/').pop()}.jpg`, width: 1200, height: 800 } }))
+  })
+
+  // Photos: a generated picture per URL, so screens look as they would live.
+  await context.route('https://upload.wikimedia.org/**', (route) => {
+    const hue = [...route.request().url()].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7)
+    return route.fulfill({
+      status: 200,
+      contentType: 'image/svg+xml',
+      body: `<svg xmlns="http://www.w3.org/2000/svg" width="480" height="320" viewBox="0 0 480 320"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="hsl(${hue},55%,62%)"/><stop offset="1" stop-color="hsl(${(hue + 50) % 360},45%,32%)"/></linearGradient></defs><rect width="480" height="320" fill="url(#g)"/><circle cx="360" cy="90" r="40" fill="hsl(${hue},80%,88%)" opacity=".8"/><path d="M0 250 L120 170 L210 230 L320 140 L480 240 L480 320 L0 320Z" fill="hsl(${(hue + 50) % 360},40%,22%)" opacity=".85"/></svg>`,
+    })
   })
 
   // An empty but valid map style: the map initialises without any tiles.

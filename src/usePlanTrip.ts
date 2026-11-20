@@ -4,6 +4,7 @@ import { searchDestinations } from './api/geocode'
 import { HttpError, isAbort } from './api/http'
 import { googleProvider } from './api/googleClient'
 import { overpassProvider } from './api/overpass'
+import { attachPhotos, fetchPhotos, tripPlaces } from './api/photos'
 import { fetchCityInfo } from './api/cityInfo'
 import { fetchTripWeather } from './api/weather'
 import { getCachedPool, poolKey, putCachedPool } from './offline/poolCache'
@@ -113,6 +114,13 @@ export function usePlanTrip() {
       setTrips(saveTrip(trip))
       showInUrl(trip.request)
       setState({ phase: 'ready', trip, alternatives })
+
+      // Photos fill in after the plan is on screen; a plan never waits for them.
+      const photos = await fetchPhotos(tripPlaces(trip), signal)
+      if (signal.aborted || photos.size === 0) return
+      const pictured = attachPhotos(trip, photos)
+      setTrips(saveTrip(pictured))
+      setState((s) => (s.phase === 'ready' && s.trip.id === trip.id ? { ...s, trip: pictured } : s))
     } catch (err) {
       if (isAbort(err) || signal.aborted) return
       setState({

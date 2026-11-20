@@ -42,6 +42,17 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/privacy\.html$/],
         runtimeCaching: [
           {
+            // Wikipedia photos of places and cities: kept so saved trips
+            // still show them offline.
+            urlPattern: /^https:\/\/upload\.wikimedia\.org\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'photos-v1',
+              expiration: { maxEntries: 300, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
             // Map style, glyphs, sprites and vector tiles: cache-first, so
             // areas already viewed keep drawing with no connectivity.
             urlPattern: /^https:\/\/tiles\.openfreemap\.org\/.*/i,

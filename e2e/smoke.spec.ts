@@ -307,3 +307,56 @@ test('the transport picker follows the arrow keys', async ({ page, context }) =>
   await page.keyboard.press('Enter')
   await expect(page.getByRole('button', { name: /^How/ })).toContainText('Car')
 })
+
+test('a destination tile plans a trip there, with a photo banner and photos on sights', async ({
+  page,
+  context,
+}) => {
+  await mockApis(context)
+  await page.goto('/')
+  await expect(page.getByTestId('destination')).toHaveCount(6)
+  await page.getByTestId('destination').filter({ hasText: 'Lisbon' }).click()
+  await expect(page.getByTestId('option-card')).toHaveCount(3)
+  await expect(page.getByTestId('trip-hero').locator('img')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Photo: Wikipedia' })).toHaveAttribute('href', /wikipedia\.org\/wiki\//)
+  await expect(page.getByRole('combobox', { name: 'Where' })).toHaveValue('Lisbon')
+
+  // Photos arrive after the plan; option covers and sights show them.
+  await expect(page.getByTestId('option-card').first().locator('.option-cover img')).toBeVisible()
+  await page.getByTestId('option-card').first().getByRole('button', { name: /View plan/ }).click()
+  await expect(page.getByTestId('daybar')).toHaveCount(3) // every day at once
+  await expect(page.getByTestId('stop').locator('img').first()).toBeVisible()
+  // Restaurants never get a guessed photo.
+  const meal = page.getByTestId('stop').filter({ hasText: /Restaurant,/ }).first()
+  await expect(meal).toBeVisible()
+  await expect(meal.locator('img')).toHaveCount(0)
+})
+
+test('a plan appears before photos arrive, and still works if they never do', async ({ page, context }) => {
+  await mockApis(context)
+  await context.route('https://upload.wikimedia.org/**', (route) => route.abort())
+  await context.route(/en\.wikipedia\.org\/w\/api\.php.*titles=/, (route) => route.fulfill({ status: 503, body: 'down' }))
+  await page.goto(`/?q=Lisbon&from=${inDays(3)}&to=${inDays(4)}&n=2&by=transit`)
+  await expect(page.getByTestId('option-card')).toHaveCount(3)
+  await expect(page.getByTestId('error-card')).toHaveCount(0)
+})
+
+test('all days are in one scroll; day chips jump to them and days fold away', async ({ page, context }) => {
+  await mockApis(context)
+  await page.goto(`/?q=Lisbon&from=${inDays(3)}&to=${inDays(5)}&n=2&by=transit`)
+  await page.getByTestId('option-card').first().getByRole('button', { name: /View plan/ }).click()
+  const days = page.locator('details.day')
+  await expect(days).toHaveCount(3)
+  await expect(page.getByTestId('stay-row').first()).toBeAttached()
+
+  await page.getByTestId('day-tab').nth(2).click()
+  await expect(page.getByTestId('day-tab').nth(2)).toHaveAttribute('aria-current', 'true')
+  await expect(days.nth(2)).toBeInViewport()
+
+  await days.nth(0).locator('summary').click()
+  await expect(days.nth(0)).not.toHaveAttribute('open', '')
+  await expect(days.nth(0).getByTestId('stop').first()).toBeHidden()
+
+  const directions = page.getByRole('link', { name: 'Directions' }).first()
+  await expect(directions).toHaveAttribute('href', /google\.com\/maps\/dir\/\?api=1/)
+})
