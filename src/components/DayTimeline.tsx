@@ -8,6 +8,8 @@ import {
 } from '../ui/icons'
 import { formatDay } from './SearchBar/dateRange'
 import WeatherBadge from './WeatherBadge'
+import DayBar from './DayBar'
+import Thumb from './Thumb'
 import { emptyDayText } from './emptyDay'
 
 const KIND: Record<PlaceKind, { Icon: ComponentType<{ size?: number }>; label: string }> = {
@@ -39,6 +41,7 @@ export default function DayTimeline({ day, transport, hasFlight = false }: Props
         <h3>{formatDay(day.date)}</h3>
         <WeatherBadge weather={day.weather} />
       </header>
+      <DayBar day={day} />
 
       {day.notes.map((note) => (
         <p key={note} className="day-note">
@@ -66,6 +69,8 @@ export default function DayTimeline({ day, transport, hasFlight = false }: Props
                     {i + 1}
                   </span>
                   <div className="stop-body">
+                    <Thumb place={stop.place} />
+                    <div className="stop-text">
                     <h4 className="stop-name">
                       {(stop.place.website ?? stop.place.mapsUrl) ? (
                         <a href={stop.place.website ?? stop.place.mapsUrl} target="_blank" rel="noreferrer">
@@ -102,6 +107,7 @@ export default function DayTimeline({ day, transport, hasFlight = false }: Props
                     {stop.place.openingHours && (
                       <p className="stop-hours">Listed hours: {stop.place.openingHours}</p>
                     )}
+                    </div>
                   </div>
                 </article>
               </li>

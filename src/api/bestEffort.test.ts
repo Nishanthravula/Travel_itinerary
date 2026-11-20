@@ -27,4 +27,20 @@ describe('best-effort sources never fail a plan', () => {
     await fetchCityInfo(dest)
     expect(fetchMock.mock.calls.map((c) => String(c[0])).join(' ')).not.toContain('restcountries')
   })
+  it('includes a banner photo of the city from its Wikipedia summary', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: unknown) =>
+      String(url).includes('/page/summary/')
+        ? Response.json({
+            type: 'standard',
+            extract: 'Lisbon is the capital of Portugal.',
+            content_urls: { desktop: { page: 'https://en.wikipedia.org/wiki/Lisbon' } },
+            originalimage: { source: 'https://upload.wikimedia.org/wikipedia/commons/a/ab/Lisbon.jpg', width: 1200, height: 800 },
+          })
+        : new Response('nope', { status: 404 }),
+    ))
+    expect((await fetchCityInfo(dest)).image).toEqual({
+      url: 'https://upload.wikimedia.org/wikipedia/commons/a/ab/Lisbon.jpg',
+      pageUrl: 'https://en.wikipedia.org/wiki/Lisbon',
+    })
+  })
 })

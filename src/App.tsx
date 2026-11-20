@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Destination, Trip, TripRequest } from './types'
+import Destinations from './components/Destinations'
 import OptionCards from './components/OptionCards'
+import TripHero from './components/TripHero'
+import { addDaysISO } from './types'
 import PlanView from './components/PlanView'
 import SavedDrawer from './components/SavedDrawer'
 import SearchBar from './components/SearchBar/SearchBar'
 import { placeLine } from './components/SearchBar/DestinationField'
 import { todayISO } from './components/SearchBar/dateRange'
 import Skeleton from './components/Skeleton'
-import { placeTitle, requestLine } from './format'
 import { findSaved } from './offline/storage'
 import { paramsToRequest, requestToParams } from './share'
-import { BookmarkIcon, LinkIcon } from './ui/icons'
+import { BookmarkIcon } from './ui/icons'
 import { usePlanTrip } from './usePlanTrip'
 
 function useOnline(): boolean {
@@ -72,6 +74,22 @@ export default function App() {
 
   const submit = (request: TripRequest, picked?: Destination) => void plan(request, picked)
 
+  /** A destination tile: three days from next week, two people, transit. */
+  const pickDestination = (query: string) => {
+    const startDate = addDaysISO(todayISO(), 7)
+    const request: TripRequest = {
+      destinationQuery: query,
+      startDate,
+      endDate: addDaysISO(startDate, 2),
+      days: 3,
+      travellers: 2,
+      transport: 'transit',
+      flights: {},
+    }
+    setInitial(request)
+    void plan(request)
+  }
+
   const openSaved = (t: Trip) => {
     setInitial({ ...t.request })
     open(t)
@@ -129,6 +147,8 @@ export default function App() {
 
         <SearchBar initial={initial} busy={state.phase === 'loading'} onSubmit={submit} />
 
+        {home && <Destinations onPick={pickDestination} />}
+
         {state.phase === 'loading' && <Skeleton step={state.step} />}
 
         {state.phase === 'error' && (
@@ -142,16 +162,7 @@ export default function App() {
 
         {state.phase === 'ready' && trip && (
           <section className="trip" aria-label={`Trip to ${trip.destination.name}`}>
-            <header className="trip-head">
-              <div>
-                <h2 className="trip-title">{placeTitle(trip.destination)}</h2>
-                <p className="trip-meta">{requestLine(trip.request)}</p>
-              </div>
-              <button className="button with-icon" onClick={() => void copyLink(trip)}>
-                <LinkIcon size={16} />
-                Copy link
-              </button>
-            </header>
+            <TripHero trip={trip} onCopyLink={() => void copyLink(trip)} />
 
             {state.alternatives.length > 0 && (
               <p className="notice">
@@ -202,8 +213,8 @@ export default function App() {
           Places and maps from{' '}
           <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors via{' '}
           <a href="https://openfreemap.org/">OpenFreeMap</a>. Weather by{' '}
-          <a href="https://open-meteo.com/">Open-Meteo</a>. City summaries from Wikipedia. Travel
-          times are estimates.
+          <a href="https://open-meteo.com/">Open-Meteo</a>. City summaries and photos from Wikipedia
+          and Wikimedia Commons. Travel times are estimates.
         </p>
         <p>
           <a href="/privacy.html">Privacy &amp; terms</a>

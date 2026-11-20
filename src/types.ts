@@ -44,6 +44,14 @@ export interface Place extends GeoPoint {
   mapsUrl?: string
   placeId?: string
   distanceKm: number
+  /** A free photo from Wikipedia, when one clearly matches this place. */
+  photo?: Photo
+}
+
+export interface Photo {
+  url: string
+  /** The Wikipedia article the photo comes from, for credit. */
+  pageUrl: string
 }
 
 export interface DayWeather {
@@ -158,6 +166,8 @@ export interface CityInfo {
   languages?: string
   drivingSide?: string
   timezone: string
+  /** Banner photo of the city, from its Wikipedia article. */
+  image?: Photo
 }
 
 export interface OptionSummary {
