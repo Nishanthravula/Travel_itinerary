@@ -324,7 +324,7 @@ test('a destination tile plans a trip there, with a photo banner and photos on s
   // Photos arrive after the plan; option covers and sights show them.
   await expect(page.getByTestId('option-card').first().locator('.option-cover img')).toBeVisible()
   await page.getByTestId('option-card').first().getByRole('button', { name: /View plan/ }).click()
-  await expect(page.getByTestId('daybar')).toBeVisible()
+  await expect(page.getByTestId('daybar')).toHaveCount(3) // every day at once
   await expect(page.getByTestId('stop').locator('img').first()).toBeVisible()
   // Restaurants never get a guessed photo.
   const meal = page.getByTestId('stop').filter({ hasText: /Restaurant,/ }).first()
@@ -339,4 +339,24 @@ test('a plan appears before photos arrive, and still works if they never do', as
   await page.goto(`/?q=Lisbon&from=${inDays(3)}&to=${inDays(4)}&n=2&by=transit`)
   await expect(page.getByTestId('option-card')).toHaveCount(3)
   await expect(page.getByTestId('error-card')).toHaveCount(0)
+})
+
+test('all days are in one scroll; day chips jump to them and days fold away', async ({ page, context }) => {
+  await mockApis(context)
+  await page.goto(`/?q=Lisbon&from=${inDays(3)}&to=${inDays(5)}&n=2&by=transit`)
+  await page.getByTestId('option-card').first().getByRole('button', { name: /View plan/ }).click()
+  const days = page.locator('details.day')
+  await expect(days).toHaveCount(3)
+  await expect(page.getByTestId('stay-row').first()).toBeAttached()
+
+  await page.getByTestId('day-tab').nth(2).click()
+  await expect(page.getByTestId('day-tab').nth(2)).toHaveAttribute('aria-current', 'true')
+  await expect(days.nth(2)).toBeInViewport()
+
+  await days.nth(0).locator('summary').click()
+  await expect(days.nth(0)).not.toHaveAttribute('open', '')
+  await expect(days.nth(0).getByTestId('stop').first()).toBeHidden()
+
+  const directions = page.getByRole('link', { name: 'Directions' }).first()
+  await expect(directions).toHaveAttribute('href', /google\.com\/maps\/dir\/\?api=1/)
 })

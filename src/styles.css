@@ -1643,3 +1643,187 @@ a.thumb:focus-visible {
     aspect-ratio: 5 / 2;
   }
 }
+
+/* ================================================================
+ * Itinerary and map in one view: all days in one scroll.
+ * ================================================================ */
+
+@media (min-width: 960px) {
+  .plan {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+.day-nav {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  gap: var(--s-2);
+  margin: var(--s-4) calc(-1 * var(--s-2)) 0;
+  padding: var(--s-2);
+  overflow-x: auto;
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter: blur(8px);
+  scrollbar-width: none;
+}
+.day-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  min-height: 36px;
+  padding: 0 var(--s-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--ink-2);
+  transition: border-color var(--fast) var(--ease), background var(--fast) var(--ease);
+}
+.day-chip:hover {
+  border-color: var(--line-strong);
+}
+.day-chip.is-on {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+.day-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--day, var(--signal));
+}
+.day-nav .map-toggle {
+  margin: 0 0 0 auto;
+}
+
+.day-list {
+  display: grid;
+  gap: var(--s-4);
+  padding-top: var(--s-4);
+}
+.day-section {
+  scroll-margin-top: 64px;
+  padding: var(--s-4) var(--s-5) var(--s-5);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+}
+
+/* Day header as a disclosure. */
+details.day > summary {
+  list-style: none;
+  cursor: pointer;
+  align-items: center;
+  margin-bottom: var(--s-2);
+}
+details.day > summary::-webkit-details-marker {
+  display: none;
+}
+.day-title {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--s-2);
+}
+.day-title::before {
+  content: '';
+  align-self: center;
+  width: 0;
+  height: 0;
+  border-left: 6px solid var(--ink-3);
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  transform: rotate(90deg);
+  transition: transform var(--fast) var(--ease);
+}
+details.day:not([open]) .day-title::before {
+  transform: rotate(0deg);
+}
+.day-label {
+  font-size: var(--t-xs);
+  font-weight: 700;
+  color: var(--day, var(--signal));
+}
+details.day:not([open]) > summary {
+  margin-bottom: 0;
+}
+
+/* Place cards: details on the left, the photo on the right. */
+.stop-body {
+  grid-template-columns: minmax(0, 1fr) 88px;
+  padding: var(--s-3);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--paper);
+}
+.stop-body > .thumb {
+  order: 2;
+}
+.stop-body > .thumb-sm {
+  width: 88px;
+  height: 88px;
+}
+.route::before {
+  top: 18px;
+}
+.stop-time {
+  padding-top: var(--s-3);
+}
+.stop-node {
+  margin-top: 10px;
+}
+.hop {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+.hop a {
+  font-size: var(--t-xs);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.stays {
+  margin: 0;
+}
+
+@media (max-width: 719px) {
+  .day-section {
+    padding: var(--s-3) var(--s-3) var(--s-4);
+  }
+  .stop-body {
+    grid-template-columns: minmax(0, 1fr) 72px;
+  }
+  .stop-body > .thumb-sm {
+    width: 72px;
+    height: 72px;
+  }
+}
+
+.stop-clock {
+  display: none;
+}
+@media (max-width: 719px) {
+  /* Phones: the time moves into the card so the card gets the width. */
+  .route {
+    --time: 0px;
+  }
+  .stop {
+    column-gap: var(--s-2);
+  }
+  .stop-time {
+    visibility: hidden;
+  }
+  .stop-clock {
+    display: block;
+    font-size: var(--t-xs);
+    font-weight: 700;
+    color: var(--day, var(--signal));
+    font-variant-numeric: tabular-nums;
+  }
+  .hop {
+    padding-left: calc(var(--node) + var(--s-2));
+  }
+}

@@ -34,6 +34,9 @@ export default function DestinationField({ value, disabled, onChange, onPick }: 
       setOptions([])
       return
     }
+    // Only while someone is typing here: a prefilled or restored destination
+    // (share link, saved trip, tile) doesn't need suggestions fetched.
+    if (document.activeElement?.id !== `${listId}-input`) return
     const ctrl = new AbortController()
     const timer = setTimeout(() => {
       searchDestinations(q, ctrl.signal)
