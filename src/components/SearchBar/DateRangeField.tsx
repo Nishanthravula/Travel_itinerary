@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { addDaysISO, daysBetweenInclusive } from '../../types'
 import { MAX_DAYS } from '../../share'
 import { ChevronLeftIcon, ChevronRightIcon } from '../../ui/icons'
-import { MONTH_NAMES, formatDay, monthGrid, todayISO } from './dateRange'
+import { MONTH_NAMES, formatDay, monthGrid, stepDate, todayISO } from './dateRange'
 
 interface Props {
   from: string
@@ -56,7 +56,6 @@ export default function DateRangeField({ from, to, onChange, onDone }: Props) {
   }
 
   const moveTo = (d: string) => {
-    if (d < today) d = today
     const { y, m } = ym(d)
     const visible =
       (y === view.y && m === view.m) || (y === second.y && m === second.m)
@@ -69,7 +68,7 @@ export default function DateRangeField({ from, to, onChange, onDone }: Props) {
     const step: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }
     if (e.key in step) {
       e.preventDefault()
-      moveTo(addDaysISO(cursor, step[e.key]))
+      moveTo(stepDate(cursor, step[e.key], today, lastAllowed))
     }
   }
 

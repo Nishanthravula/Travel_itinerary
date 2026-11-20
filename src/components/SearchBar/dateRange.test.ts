@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clampRange, formatDay, formatRange, monthGrid } from './dateRange'
+import { clampRange, formatDay, formatRange, monthGrid, stepDate } from './dateRange'
 
 describe('monthGrid', () => {
   it('lays out March 2027, which starts on a Monday, with no leading gap', () => {
@@ -43,5 +43,18 @@ describe('formatting', () => {
   })
   it('writes a day with its weekday', () => {
     expect(formatDay('2027-03-12')).toBe('Fri 12 Mar')
+  })
+})
+
+describe('stepDate', () => {
+  const today = '2027-03-10'
+  it('moves by the step', () => {
+    expect(stepDate('2027-03-12', 7, today, null)).toBe('2027-03-19')
+  })
+  it('stops at today rather than landing on a past, disabled day', () => {
+    expect(stepDate('2027-03-12', -7, today, null)).toBe(today)
+  })
+  it('stops at the last day a trip may end on while choosing the end', () => {
+    expect(stepDate('2027-03-22', 7, today, '2027-03-25')).toBe('2027-03-25')
   })
 })

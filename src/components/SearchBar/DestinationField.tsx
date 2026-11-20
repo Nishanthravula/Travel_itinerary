@@ -53,7 +53,9 @@ export default function DestinationField({ value, disabled, onChange, onPick }: 
   }, [value, listId])
 
   const pick = (d: Destination) => {
-    skipNext.current = true
+    // Setting the same text again doesn't re-run the lookup effect, so only
+    // skip a lookup when the text is actually about to change.
+    skipNext.current = d.name !== value
     onChange(d.name)
     onPick(d)
     setOpen(false)

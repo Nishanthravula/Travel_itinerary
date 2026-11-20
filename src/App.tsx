@@ -205,6 +205,9 @@ export default function App() {
           <a href="https://open-meteo.com/">Open-Meteo</a>. City summaries from Wikipedia. Travel
           times are estimates.
         </p>
+        <p>
+          <a href="/privacy.html">Privacy &amp; terms</a>
+        </p>
       </footer>
 
       {drawer && (

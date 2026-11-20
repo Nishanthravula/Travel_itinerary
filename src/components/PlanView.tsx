@@ -142,7 +142,14 @@ export default function PlanView({ trip, index, onSwitch, onBack }: Props) {
           {activeTab === 'stay' ? (
             <StayList trip={trip} option={option} />
           ) : (
-            <DayTimeline day={option.days[activeTab]} transport={trip.request.transport} />
+            <DayTimeline
+              day={option.days[activeTab]}
+              transport={trip.request.transport}
+              hasFlight={
+                (activeTab === 0 && Boolean(trip.request.flights.arrivalTime)) ||
+                (activeTab === option.days.length - 1 && Boolean(trip.request.flights.departureTime))
+              }
+            />
           )}
         </div>
 

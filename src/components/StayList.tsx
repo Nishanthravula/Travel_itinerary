@@ -35,7 +35,20 @@ export default function StayList({ trip, option }: Props) {
         Chosen {option.summary.baseLabel}, close to where this plan spends its days.
       </p>
 
-      {option.stays.length === 0 ? (
+      {option.stays.length === 0 && trip.legacy ? (
+        <div className="empty">
+          <p>This trip was saved by an earlier version of Wayfarer, before places to stay were added.</p>
+          <a
+            className="button"
+            href={citySearchUrl(destination.name, request)}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Search stays in {destination.name}
+            <ExternalIcon size={15} />
+          </a>
+        </div>
+      ) : option.stays.length === 0 ? (
         <div className="empty">
           <p>No individual places to stay are mapped around {destination.name}.</p>
           <a

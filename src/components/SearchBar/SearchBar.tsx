@@ -173,7 +173,8 @@ export default function SearchBar({ initial, busy, onSubmit }: Props) {
             <Popover label="Getting around" onClose={() => setOpen(null)} align="end">
               <TransportField
                 value={transport}
-                onChange={(m) => {
+                onChange={setTransport}
+                onPick={(m) => {
                   setTransport(m)
                   setOpen(null)
                 }}

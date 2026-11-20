@@ -198,6 +198,8 @@ export interface Trip {
   source?: PlaceSource
   /** Saved as a request only (no place data); opening it plans again. */
   stub?: boolean
+  /** Saved by v1 of the app, which had no places to stay. */
+  legacy?: boolean
 }
 
 /** Single-plan trip saved by v1 of the app; kept for migration only. */

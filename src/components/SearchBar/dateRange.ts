@@ -37,6 +37,23 @@ export function clampRange(from: string, to: string, todayISO: string): { from: 
   return { from: start, to: end }
 }
 
+/**
+ * Where the calendar's arrow keys land: never before today, and never past
+ * the last day a trip may end on while the end is being chosen — so focus
+ * never sits on a day that can't be picked.
+ */
+export function stepDate(
+  cursor: string,
+  delta: number,
+  todayISO: string,
+  lastAllowed: string | null,
+): string {
+  const next = addDaysISO(cursor, delta)
+  if (next < todayISO) return todayISO
+  if (lastAllowed !== null && next > lastAllowed) return lastAllowed
+  return next
+}
+
 /** "12–16 Mar", "28 Mar – 2 Apr", or "12 Mar" for a single day. */
 export function formatRange(from: string, to: string): string {
   const a = parts(from)

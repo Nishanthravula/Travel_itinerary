@@ -146,6 +146,9 @@ main {
   max-width: 36rem;
 }
 
+.foot p + p {
+  margin-top: var(--s-2);
+}
 .foot {
   margin-top: var(--s-8);
   padding-top: var(--s-4);

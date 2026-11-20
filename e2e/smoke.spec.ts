@@ -263,3 +263,47 @@ test('when the free places servers fail, sights come from Wikipedia and the trip
   await expect(page.getByTestId('stop').filter({ hasText: /Belém Tower|Jerónimos|São Jorge|Gulbenkian|Cathedral/ }).first()).toBeVisible()
   await expect(page.getByTestId('stop').filter({ hasText: /Alfama|railway station/ })).toHaveCount(0)
 })
+
+test('the privacy and terms page is linked from every page and names the services used', async ({
+  page,
+  context,
+}) => {
+  await mockApis(context)
+  await page.goto('/')
+  await page.getByRole('link', { name: 'Privacy & terms' }).click()
+  await expect(page).toHaveURL(/\/privacy\.html$/)
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Privacy')
+  await expect(page.getByRole('link', { name: /Google Terms of Service/ })).toHaveAttribute('href', 'https://policies.google.com/terms')
+  await expect(page.getByRole('link', { name: /Google Privacy Policy/ })).toHaveAttribute('href', 'https://policies.google.com/privacy')
+  await expect(page.getByRole('link', { name: /Google Maps\/Google Earth Additional Terms/ })).toBeVisible()
+  for (const name of ['OpenStreetMap', 'Wikipedia', 'Open-Meteo', 'Netlify']) {
+    await expect(page.getByText(name).first()).toBeVisible()
+  }
+  await page.getByRole('link', { name: /Back to Wayfarer/ }).click()
+  await expect(page.getByRole('heading', { name: 'Where to next?' })).toBeVisible()
+})
+
+test('suggestions still appear after picking a place whose name matches what was typed', async ({
+  page,
+  context,
+}) => {
+  await mockApis(context)
+  await page.goto('/')
+  const where = page.getByRole('combobox', { name: 'Where' })
+  await where.fill('Lisbon')
+  await page.getByRole('option', { name: /Lisbon.*Portugal/ }).click()
+  await where.fill('Lis')
+  await expect(page.getByRole('option').first()).toBeVisible()
+})
+
+test('the transport picker follows the arrow keys', async ({ page, context }) => {
+  await mockApis(context)
+  await page.goto('/')
+  await page.getByRole('button', { name: /^How/ }).click()
+  await expect(page.getByRole('radio', { name: /Transit/ })).toBeFocused()
+  await page.keyboard.press('ArrowDown')
+  await expect(page.getByRole('radio', { name: /Car/ })).toBeFocused()
+  await expect(page.getByRole('radio', { name: /Car/ })).toHaveAttribute('aria-checked', 'true')
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('button', { name: /^How/ })).toContainText('Car')
+})

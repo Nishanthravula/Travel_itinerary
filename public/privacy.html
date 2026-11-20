@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Privacy &amp; terms · Wayfarer</title>
+    <meta name="description" content="How Wayfarer handles your data, which services it uses, and the terms that apply." />
+    <meta name="theme-color" content="#f6f7f5" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#101315" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
+    <style>
+      :root {
+        --paper: #f6f7f5; --ink: #15191c; --ink-2: #4a545c; --line: #e1e4e0; --signal: #2743d6;
+        color-scheme: light dark;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root { --paper: #101315; --ink: #eceeed; --ink-2: #b4bbc0; --line: #262c30; --signal: #93a5ff; }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; background: var(--paper); color: var(--ink);
+        font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      main { max-width: 42rem; margin: 0 auto; padding: 24px 20px 72px; }
+      .back { display: inline-block; margin-bottom: 40px; font-weight: 600; }
+      h1 { font-size: 2.1rem; line-height: 1.1; letter-spacing: -0.02em; margin: 0 0 8px; }
+      h2 { font-size: 1.2rem; margin: 40px 0 8px; padding-top: 24px; border-top: 1px solid var(--line); }
+      p, li { color: var(--ink-2); }
+      ul { padding-left: 1.2em; }
+      li { margin: 6px 0; }
+      strong { color: var(--ink); }
+      a { color: var(--ink); text-decoration-color: var(--line); text-underline-offset: 3px; }
+      a:hover { text-decoration-color: currentColor; }
+      a:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+      .updated { color: var(--ink-2); font-size: 0.875rem; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <a class="back" href="/">← Back to Wayfarer</a>
+      <h1>Privacy &amp; terms</h1>
+      <p class="updated">Last updated 20 November 2026</p>
+      <p>
+        Wayfarer plans trips in your browser. There are no accounts, no
+        advertising and no analytics, and Wayfarer itself sets no cookies.
+      </p>
+
+      <h2>What stays on your device</h2>
+      <ul>
+        <li>
+          <strong>Saved trips</strong> are kept in your browser's local storage,
+          so they open without a connection. Delete them from <em>Saved</em>, or
+          by clearing this site's data in your browser.
+        </li>
+        <li>
+          <strong>Places from OpenStreetMap</strong> are cached in your browser
+          for up to seven days, so planning the same city again is quicker.
+        </li>
+        <li>
+          <strong>Places from Google</strong> are never stored. A trip planned
+          with Google data is saved as its search only — destination, dates,
+          people and transport — and is planned again when you open it.
+        </li>
+      </ul>
+
+      <h2>What is sent, and to whom</h2>
+      <p>To build a plan, Wayfarer sends only what each service needs:</p>
+      <ul>
+        <li>
+          <strong>Open-Meteo</strong> receives the destination you type, to find
+          it, and its position and your dates, for the forecast.
+        </li>
+        <li>
+          <strong>Google Places</strong> receives the destination's position and
+          how you'll get around, through Wayfarer's own server, to find sights,
+          restaurants and places to stay.
+        </li>
+        <li>
+          <strong>OpenStreetMap</strong> servers (overpass-api.de,
+          overpass.kumi.systems, overpass.private.coffee) and
+          <strong>Wikipedia</strong> receive the destination's position, as
+          alternative sources of places. Wikipedia also provides the city summary.
+        </li>
+        <li>
+          <strong>OpenFreeMap</strong> and <strong>Google Maps</strong> serve the
+          map you see. When a Google map is shown, it loads from Google, which may
+          set its own cookies.
+        </li>
+        <li>
+          <strong>Booking.com</strong> receives your destination, dates and party
+          size only if you click <em>Check prices</em>.
+        </li>
+        <li>
+          <strong>Netlify</strong> hosts Wayfarer and, like any web host, keeps
+          standard server logs, including IP addresses.
+        </li>
+      </ul>
+      <p>
+        Each service handles what it receives under its own privacy policy. Your
+        flight times never leave your browser.
+      </p>
+      <p>
+        A shared trip link contains the destination, dates, number of people,
+        transport and the place's approximate position — anyone you send it to
+        can see those.
+      </p>
+
+      <h2>Google Maps</h2>
+      <p>
+        Wayfarer uses Google Maps Platform services. By using Wayfarer you agree
+        to be bound by the
+        <a href="https://policies.google.com/terms">Google Terms of Service</a>
+        and the
+        <a href="https://maps.google.com/help/terms_maps/">Google Maps/Google Earth Additional Terms of Service</a>.
+        Google's use of information is described in the
+        <a href="https://policies.google.com/privacy">Google Privacy Policy</a>.
+      </p>
+
+      <h2>Terms of use</h2>
+      <ul>
+        <li>
+          Wayfarer is provided free and as is, without warranty. Plans are
+          suggestions built from public and third-party data.
+        </li>
+        <li>
+          Travel times are estimates, not routes. Opening hours, prices,
+          ratings and availability can be wrong or out of date — check with the
+          place or the booking site before you rely on them.
+        </li>
+        <li>
+          Wayfarer does not sell anything or take bookings. Anything you book on
+          another site is between you and that site.
+        </li>
+        <li>
+          Map data © OpenStreetMap contributors, available under the
+          <a href="https://www.openstreetmap.org/copyright">Open Database License</a>.
+          Country facts from the world-countries dataset (ODbL). Wikipedia
+          content under
+          <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>.
+        </li>
+      </ul>
+
+      <h2>Questions</h2>
+      <p>
+        Open an issue on
+        <a href="https://github.com/Nishanthravula/Travel_itinerary/issues">Wayfarer's GitHub page</a>.
+      </p>
+    </main>
+  </body>
+</html>
