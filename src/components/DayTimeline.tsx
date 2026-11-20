@@ -8,6 +8,7 @@ import {
 } from '../ui/icons'
 import { formatDay } from './SearchBar/dateRange'
 import WeatherBadge from './WeatherBadge'
+import { emptyDayText } from './emptyDay'
 
 const KIND: Record<PlaceKind, { Icon: ComponentType<{ size?: number }>; label: string }> = {
   attraction: { Icon: SightIcon, label: 'Sight' },
@@ -23,13 +24,15 @@ const KIND: Record<PlaceKind, { Icon: ComponentType<{ size?: number }>; label: s
 interface Props {
   day: ItineraryDay
   transport: TransportMode
+  /** A flight landed or leaves on this day. */
+  hasFlight?: boolean
 }
 
 /**
  * One day drawn as a route: stops are stations on a line, and the
  * stretches between them carry the estimated travel time.
  */
-export default function DayTimeline({ day, transport }: Props) {
+export default function DayTimeline({ day, transport, hasFlight = false }: Props) {
   return (
     <section className="day" aria-label={`${day.label}, ${formatDay(day.date)}`}>
       <header className="day-head">
@@ -44,10 +47,7 @@ export default function DayTimeline({ day, transport }: Props) {
       ))}
 
       {day.stops.length === 0 ? (
-        <p className="empty">
-          A travel day. Nothing is scheduled around your flight — settle in near where you are
-          staying.
-        </p>
+        <p className="empty">{emptyDayText(hasFlight)}</p>
       ) : (
         <ol className="route">
           {day.stops.map((stop, i) => {

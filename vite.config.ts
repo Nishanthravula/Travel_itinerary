@@ -38,6 +38,8 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         cleanupOutdatedCaches: true,
         navigateFallback: '/index.html',
+        // A real page, not part of the app: never answer it with the app shell.
+        navigateFallbackDenylist: [/^\/privacy\.html$/],
         runtimeCaching: [
           {
             // Map style, glyphs, sprites and vector tiles: cache-first, so

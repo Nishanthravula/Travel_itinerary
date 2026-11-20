@@ -119,5 +119,6 @@ export function migrateLegacy(i: LegacyItinerary): Trip {
     ],
     parks: i.parks ?? [],
     forecastPartial: i.forecastPartial,
+    legacy: true,
   }
 }

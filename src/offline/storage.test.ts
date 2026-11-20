@@ -45,6 +45,7 @@ describe('saved trips', () => {
     expect(t.options[0].days).toEqual(legacy.days)
     expect(t.options[0].summary).toMatchObject({ sightCount: 1, headlineSights: ['Kinkaku-ji'] })
     expect(t.request).toMatchObject({ startDate: '2026-08-01', endDate: '2026-08-02', days: 2, travellers: 2, transport: 'transit' })
+    expect(t.legacy).toBe(true)
   })
   it('reads v1 saved trips when no v2 data exists yet', () => {
     localStorage.setItem('wayfarer.trips.v1', JSON.stringify([legacy]))
